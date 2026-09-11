@@ -6,14 +6,17 @@ const config = {
   canvasOrigin: "https://mcpsmd.instructure.com",
   production: true,
   token: "fake-test-token",
-  password: "separate-test-passphrase",
+  password: "testonly",
 };
-it("fails closed when live data has no strong app passphrase", async () => {
-  await expect(buildApp({ ...config, password: "" })).rejects.toThrow(
-    "APP_PASSWORD",
-  );
-});
-it("protects assignment data, checks request origins, and invalidates signed-out sessions", async () => {
+it.each([undefined, "", "1234567"])(
+  "rejects live configuration with a missing or shorter-than-eight-character passphrase (%s)",
+  async (password) => {
+    await expect(buildApp({ ...config, password })).rejects.toThrow(
+      "at least 8 characters",
+    );
+  },
+);
+it("accepts an eight-character passphrase while protecting data, checking origins, and invalidating signed-out sessions", async () => {
   const client = { sync: vi.fn() };
   const app = await buildApp(config, client);
   try {

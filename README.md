@@ -19,7 +19,7 @@ If a build reports that `tsc` is not recognized, run `npm install --include=dev`
 
 1. If MCPS permits it, generate a personal token in your Canvas account settings. Do not send it through chat.
 2. Copy `.env.example` to `.env` in the repository root.
-3. Set `CANVAS_ACCESS_TOKEN` and `APP_PASSWORD`. The app passphrase must be at least 16 characters and must be different from your Canvas password. Prefer a long randomly generated passphrase saved in your password manager.
+3. Set `CANVAS_ACCESS_TOKEN` and `APP_PASSWORD`. The app passphrase must be at least 8 characters and must be different from your Canvas password. Prefer a long randomly generated passphrase saved in your password manager.
 4. Restart the app and sign in using the app passphrase.
 
 The app never requests or stores your Canvas password. If a token is configured without a sufficiently long app passphrase, the backend refuses to start. The exact Canvas origin is restricted to `https://mcpsmd.instructure.com`.
@@ -49,7 +49,7 @@ Set these in Render's Environment panel:
 | `NODE_VERSION`        | `24.18.0`                                                                                                                       |
 | `CANVAS_BASE_URL`     | `https://mcpsmd.instructure.com`                                                                                                |
 | `CANVAS_ACCESS_TOKEN` | Your own Canvas token; enter directly in Render                                                                                 |
-| `APP_PASSWORD`        | A separate strong app passphrase, at least 16 characters                                                                        |
+| `APP_PASSWORD`        | A separate strong app passphrase, at least 8 characters                                                                        |
 | `APP_ORIGIN`          | Optional for the default Render address; required for a custom domain. Use the exact HTTPS app origin without a trailing slash. |
 
 The backend automatically uses `RENDER_EXTERNAL_URL` for the standard Render address and listens on Render's assigned `PORT`. It serves the React build and `/api` from the same origin. Do not prefix secrets with `VITE_`.

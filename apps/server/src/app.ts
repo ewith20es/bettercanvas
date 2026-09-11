@@ -21,9 +21,9 @@ export async function buildApp(
   config: Config,
   client?: Pick<CanvasClient, "sync">,
 ) {
-  if (config.token && (!config.password || config.password.length < 16))
+  if (config.token && (!config.password || config.password.length < 8))
     throw new Error(
-      "Set APP_PASSWORD to a separate passphrase of at least 16 characters before connecting Canvas.",
+      "Set APP_PASSWORD to a separate passphrase of at least 8 characters before connecting Canvas.",
     );
   const origin = new URL(config.origin);
   if (config.production && origin.protocol !== "https:")
