@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: bettercanvas
+    runtime: node
+    region: virginia
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 24.18.0
+      - key: CANVAS_BASE_URL
+        value: https://mcpsmd.instructure.com
+      - key: CANVAS_ACCESS_TOKEN
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+# APP_ORIGIN automatically uses RENDER_EXTERNAL_URL.
+# Add APP_ORIGIN explicitly if using a custom domain.

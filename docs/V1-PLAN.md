@@ -1,6 +1,6 @@
 # Better Canvas — v1 product and technical plan
 
-Planning baseline: September 11, 2026. This is a proposed implementation plan, not an implemented app. Scope: one person's own MCPS Canvas account. MCPS token availability and the exact Canvas hostname remain unverified.
+Planning baseline: September 11, 2026. This document preserves the original v1 proposal. The initial app has since been implemented; see [README](../README.md) for the actual structure and setup, and [verification](VERIFICATION.md) for completed checks. Scope: one person's own MCPS Canvas account. The user confirmed https://mcpsmd.instructure.com; live token permissions remain unverified.
 
 ## 1. Product promise
 
@@ -155,7 +155,7 @@ Service worker: cache the app shell and static assets, not /api responses. Offli
 
 ## 9. Proposed project structure
 
-This is the target structure for implementation; only this planning document exists now.
+This was the proposed target structure. The implementation uses one root dependency manifest, shared domain modules, frontend views, and a backend; see the README for its current layout.
 
 ```text
 better-canvas/
