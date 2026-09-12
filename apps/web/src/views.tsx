@@ -39,6 +39,11 @@ import {
   type Snapshot,
 } from "../../../packages/domain/src";
 import type { Preferences } from "./data";
+import {
+  coursePeriod,
+  schedule,
+  sortCourses,
+} from "../../../packages/domain/src/schedule";
 import { useAssignmentTools } from "./webmcp";
 export type ViewProps = {
   data: Snapshot;
@@ -607,14 +612,41 @@ export function Calendar(props: ViewProps) {
 }
 export function Courses(props: ViewProps) {
   const { data, prefs, updatePrefs, now } = props;
+  const courses = sortCourses(data.courses, prefs.coursePeriods);
   return (
     <>
       <div className="section-title">
         <h2>{data.courses.length} active courses</h2>
-        <span>Hidden courses stay available here</span>
+        <div
+          className="course-view-toggle"
+          role="group"
+          aria-label="Course view"
+        >
+          <button
+            type="button"
+            aria-pressed={prefs.courseView === "list"}
+            onClick={() => updatePrefs({ courseView: "list" })}
+          >
+            List
+          </button>
+          <button
+            type="button"
+            aria-pressed={prefs.courseView === "gallery"}
+            onClick={() => updatePrefs({ courseView: "gallery" })}
+          >
+            Gallery
+          </button>
+        </div>
       </div>
-      <div className="course-grid">
-        {data.courses.map((c) => {
+      <p className="course-order-note">
+        In schedule order · Unmatched courses appear last. Adjust a course’s
+        period if its Canvas name is different.
+      </p>
+      <div
+        className={prefs.courseView === "list" ? "course-list" : "course-grid"}
+      >
+        {courses.map((c) => {
+          const slot = coursePeriod(c, prefs.coursePeriods);
           const list = data.assignments.filter((a) => a.courseId === c.id),
             missing = list.filter(
               (a) => statusOf(a, now).missing && !statusOf(a, now).excused,
@@ -631,7 +663,13 @@ export function Courses(props: ViewProps) {
             >
               <div className="course-card-top">
                 <span className="course-symbol">
-                  <BookOpen size={22} />
+                  {slot ? (
+                    <span aria-label={`Period ${slot.period}`}>
+                      {slot.period}
+                    </span>
+                  ) : (
+                    <BookOpen size={22} />
+                  )}
                 </span>
                 <label className="switch-label">
                   <input
@@ -649,8 +687,17 @@ export function Courses(props: ViewProps) {
                   {hidden ? "Hidden" : "Shown"}
                 </label>
               </div>
-              <p className="tiny-label">{c.code}</p>
-              <h2>{nameOf(c, prefs)}</h2>
+              <div className="course-identity">
+                <p className="tiny-label">
+                  {slot
+                    ? `Period ${slot.period} · ${slot.name}`
+                    : "Not in schedule"}
+                </p>
+                <h2>{nameOf(c, prefs)}</h2>
+                <p className="course-room">
+                  {slot ? `Room ${slot.room}` : c.code}
+                </p>
+              </div>
               <div className="course-counts">
                 <span>
                   <strong>{needs}</strong> need attention or work
@@ -671,6 +718,31 @@ export function Courses(props: ViewProps) {
                     })
                   }
                 />
+              </label>
+              <label className="field-label course-period-field">
+                Schedule period
+                <select
+                  aria-label={`Schedule period for ${c.name}`}
+                  value={
+                    Object.hasOwn(prefs.coursePeriods, c.id)
+                      ? String(prefs.coursePeriods[c.id])
+                      : "auto"
+                  }
+                  onChange={(e) => {
+                    const coursePeriods = { ...prefs.coursePeriods };
+                    if (e.target.value === "auto") delete coursePeriods[c.id];
+                    else coursePeriods[c.id] = Number(e.target.value);
+                    updatePrefs({ coursePeriods });
+                  }}
+                >
+                  <option value="auto">Automatic match</option>
+                  {schedule.map((s) => (
+                    <option key={s.period} value={s.period}>
+                      {s.period} · {s.name}
+                    </option>
+                  ))}
+                  <option value="-1">Not in schedule</option>
+                </select>
               </label>
               <div className="course-actions">
                 <label className="color-label">

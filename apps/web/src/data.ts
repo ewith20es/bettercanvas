@@ -7,6 +7,8 @@ export type Preferences = {
   zone: string;
   theme: "light" | "dark" | "system";
   offline: boolean;
+  courseView: "list" | "gallery";
+  coursePeriods: Record<string, number>;
 };
 export const defaults: Preferences = {
   hidden: [],
@@ -15,6 +17,8 @@ export const defaults: Preferences = {
   zone: "America/New_York",
   theme: "light",
   offline: false,
+  courseView: "gallery",
+  coursePeriods: {},
 };
 const db = new Dexie("bettercanvas-v1") as Dexie & {
   snapshots: Table<{ key: string; value: Snapshot }>;
