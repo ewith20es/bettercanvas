@@ -68,6 +68,10 @@ export default function App() {
   const busyRef = useRef(false),
     dataRef = useRef(data),
     sessionEpoch = useRef(0);
+  const assignmentVisibility = useRef<{ key: string; hidden: string[] }>({
+    key: "",
+    hidden: [],
+  });
   dataRef.current = data;
   const {
     needRefresh: [needRefresh],
@@ -281,7 +285,20 @@ export default function App() {
       : stale
         ? "Update needed"
         : "Up to date";
-  const props: ViewProps = { data, prefs, updatePrefs, now, open: setSelected };
+  const visibilityKey = `${accountKey(data)}:${location.pathname}:${new URLSearchParams(location.search).get("filter") ?? "all"}`;
+  if (assignmentVisibility.current.key !== visibilityKey)
+    assignmentVisibility.current = {
+      key: visibilityKey,
+      hidden: [...prefs.hiddenAssignments],
+    };
+  const props: ViewProps = {
+    data,
+    prefs,
+    updatePrefs,
+    now,
+    open: setSelected,
+    hiddenAtEntry: assignmentVisibility.current.hidden,
+  };
   return (
     <div className="shell">
       <a href="#main-content" className="skip-link">

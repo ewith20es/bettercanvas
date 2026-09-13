@@ -18,6 +18,8 @@ import {
   ChevronRight,
   Clock3,
   ExternalLink,
+  Eye,
+  EyeOff,
   LockKeyhole,
   LogOut,
   RefreshCw,
@@ -51,6 +53,7 @@ export type ViewProps = {
   updatePrefs: (p: Partial<Preferences>) => void;
   now: Date;
   open: (a: Assignment) => void;
+  hiddenAtEntry?: string[];
 };
 const nameOf = (c: Course, p: Preferences) => p.nicknames[c.id] || c.name;
 const colorOf = (c: Course, data: Snapshot, p: Preferences) =>
@@ -61,8 +64,11 @@ const colorOf = (c: Course, data: Snapshot, p: Preferences) =>
       data.courses.findIndex((v) => v.id === c.id),
     ) % courseColors.length
   ];
-const visible = (d: Snapshot, p: Preferences) =>
-  d.assignments.filter((a) => !p.hidden.includes(a.courseId));
+const assignmentKey = (a: Assignment) => `${a.courseId}:${a.id}`;
+const visible = (d: Snapshot, p: Preferences, hidden = p.hiddenAssignments) =>
+  d.assignments.filter(
+    (a) => !p.hidden.includes(a.courseId) && !hidden.includes(assignmentKey(a)),
+  );
 export const fmtFull = (v: string | null, zone: string) =>
   v
     ? new Intl.DateTimeFormat("en-US", {
@@ -102,66 +108,93 @@ function Badge({ a, now }: { a: Assignment; now: Date }) {
     </span>
   );
 }
-function Row({ a, data, prefs, now, open }: ViewProps & { a: Assignment }) {
+function Row({
+  a,
+  data,
+  prefs,
+  now,
+  open,
+  updatePrefs,
+}: ViewProps & { a: Assignment }) {
+  const hidden = prefs.hiddenAssignments.includes(assignmentKey(a));
   const c = data.courses.find((c) => c.id === a.courseId)!;
   const s = statusOf(a, now),
     sync = data.sync.find((v) => v.courseId === a.courseId);
   return (
-    <button
-      className={
-        "assignment-row " + (attentionRank(a, now) < 3 ? "attention" : "")
-      }
-      onClick={() => open(a)}
-      aria-label={`${a.name}, ${s.label}${s.missing ? ", Missing in Canvas" : ""}`}
+    <div
+      className={`assignment-with-hide${hidden ? " assignment-hidden" : ""}`}
     >
-      <span
-        className="course-line"
-        style={{ background: colorOf(c, data, prefs) }}
-      />
-      <div className="assignment-main">
-        <strong>
-          {a.name}
-          {a.locked && <LockKeyhole size={14} aria-label="Locked" />}
-        </strong>
-        <span>
-          <span style={{ color: colorOf(c, data, prefs) }}>
-            {nameOf(c, prefs)}
-          </span>
-          <i>·</i>
-          <span>{dueText(a, prefs.zone, now)}</span>
-          {a.points !== null && (
-            <>
-              <i>·</i>
-              <span>{a.points} pts</span>
-            </>
-          )}
-        </span>
-        {(s.reason || s.late || a.locked || sync?.error) && (
-          <div className="row-flags">
-            {s.reason && (
-              <span className={s.check ? "amber-text" : "red-text"}>
-                {s.reason}
-              </span>
+      <button
+        className={
+          "assignment-row " + (attentionRank(a, now) < 3 ? "attention" : "")
+        }
+        onClick={() => open(a)}
+        aria-label={`${a.name}, ${s.label}${s.missing ? ", Missing in Canvas" : ""}`}
+      >
+        <span
+          className="course-line"
+          style={{ background: colorOf(c, data, prefs) }}
+        />
+        <div className="assignment-main">
+          <strong>
+            {a.name}
+            {a.locked && <LockKeyhole size={14} aria-label="Locked" />}
+          </strong>
+          <span>
+            <span style={{ color: colorOf(c, data, prefs) }}>
+              {nameOf(c, prefs)}
+            </span>
+            <i>·</i>
+            <span>{dueText(a, prefs.zone, now)}</span>
+            {a.points !== null && (
+              <>
+                <i>·</i>
+                <span>{a.points} pts</span>
+              </>
             )}
-            {s.late && <span className="amber-text">Late in Canvas</span>}
-            {a.locked && <span>Locked — check Canvas</span>}
-            {sync?.error && <span>Previous data</span>}
-          </div>
-        )}
-      </div>
-      <div className="status-column">
-        <Badge a={a} now={now} />
-        {s.grading && (
-          <small>
-            {s.grading}
-            {s.graded && a.submission?.score != null
-              ? ` · ${a.submission.score}${a.points !== null ? `/${a.points}` : ""}`
-              : ""}
-          </small>
-        )}
-      </div>
-      <ChevronRight size={17} />
-    </button>
+          </span>
+          {(s.reason || s.late || a.locked || sync?.error) && (
+            <div className="row-flags">
+              {s.reason && (
+                <span className={s.check ? "amber-text" : "red-text"}>
+                  {s.reason}
+                </span>
+              )}
+              {s.late && <span className="amber-text">Late in Canvas</span>}
+              {a.locked && <span>Locked — check Canvas</span>}
+              {sync?.error && <span>Previous data</span>}
+            </div>
+          )}
+        </div>
+        <div className="status-column">
+          <Badge a={a} now={now} />
+          {s.grading && (
+            <small>
+              {s.grading}
+              {s.graded && a.submission?.score != null
+                ? ` · ${a.submission.score}${a.points !== null ? `/${a.points}` : ""}`
+                : ""}
+            </small>
+          )}
+        </div>
+        <ChevronRight size={17} />
+      </button>
+      <button
+        className="assignment-hide-button icon-button"
+        aria-label={`${hidden ? "Unhide" : "Hide"} ${a.name}`}
+        aria-pressed={hidden}
+        title={hidden ? "Unhide assignment" : "Hide assignment"}
+        onClick={() =>
+          updatePrefs({
+            hiddenAssignments: hidden
+              ? prefs.hiddenAssignments.filter((id) => id !== assignmentKey(a))
+              : [...prefs.hiddenAssignments, assignmentKey(a)],
+          })
+        }
+      >
+        {hidden ? <EyeOff size={19} /> : <Eye size={19} />}
+      </button>
+    </div>
   );
 }
 function Section({
@@ -195,7 +228,7 @@ function Section({
 export function Home(props: ViewProps & { incomplete: boolean }) {
   const { data, prefs, now } = props;
   const [showDone, setShowDone] = useState(false);
-  const all = visible(data, prefs),
+  const all = visible(data, prefs, props.hiddenAtEntry),
     today = dayKey(now, prefs.zone);
   const needs = all.filter((a) => statusOf(a, now).needsWork),
     selected = sortAssignments(showDone ? all : needs);
@@ -352,6 +385,8 @@ export function Assignments(props: ViewProps) {
     course = params.get("course") ?? "",
     day = params.get("day"),
     work = params.get("work") === "1";
+  const statusFilter =
+    filter === "hidden" ? (params.get("status") ?? "all") : filter;
   const set = (key: string, value: string) =>
     setParams((prev) => {
       const p = new URLSearchParams(prev);
@@ -364,22 +399,28 @@ export function Assignments(props: ViewProps) {
     ["missing", "Missing"],
     ["submitted", "Submitted"],
     ["graded", "Graded"],
+    ["hidden", "Hidden"],
   ];
   const filtered = sortAssignments(
-    visible(data, prefs).filter((a) => {
+    (filter === "hidden"
+      ? data.assignments.filter((a) =>
+          prefs.hiddenAssignments.includes(assignmentKey(a)),
+        )
+      : visible(data, prefs, props.hiddenAtEntry)
+    ).filter((a) => {
       const s = statusOf(a, now);
       const match =
-        filter === "upcoming"
+        statusFilter === "upcoming"
           ? !!a.dueAt && Date.parse(a.dueAt) >= now.getTime()
-          : filter === "missing"
+          : statusFilter === "missing"
             ? s.missing && !s.excused
-            : filter === "submitted"
+            : statusFilter === "submitted"
               ? s.submitted
-              : filter === "graded"
+              : statusFilter === "graded"
                 ? s.graded
-                : filter === "overdue"
+                : statusFilter === "overdue"
                   ? s.overdue
-                  : filter === "attention"
+                  : statusFilter === "attention"
                     ? attentionRank(a, now) < 9
                     : true;
       return (
@@ -391,6 +432,27 @@ export function Assignments(props: ViewProps) {
       );
     }),
   );
+  const sort = params.get("sort") ?? "due";
+  if (sort === "newest")
+    filtered.sort(
+      (a, b) =>
+        (b.dueAt ? Date.parse(b.dueAt) : -Infinity) -
+          (a.dueAt ? Date.parse(a.dueAt) : -Infinity) ||
+        a.name.localeCompare(b.name),
+    );
+  if (sort === "name") filtered.sort((a, b) => a.name.localeCompare(b.name));
+  if (sort === "course")
+    filtered.sort((a, b) =>
+      nameOf(
+        data.courses.find((c) => c.id === a.courseId)!,
+        prefs,
+      ).localeCompare(
+        nameOf(
+          data.courses.find((c) => c.id === b.courseId)!,
+          prefs,
+        ),
+      ),
+    );
   useAssignmentTools(filtered, now);
   return (
     <>
@@ -404,6 +466,10 @@ export function Assignments(props: ViewProps) {
                 const p = new URLSearchParams(prev);
                 p.set("filter", id);
                 p.delete("day");
+                p.delete("course");
+                p.delete("q");
+                p.delete("work");
+                p.delete("status");
                 return p;
               })
             }
@@ -412,6 +478,12 @@ export function Assignments(props: ViewProps) {
           </button>
         ))}
       </div>
+      {filter === "hidden" && (
+        <p className="hidden-help">
+          Hidden from your workspace on this device. Use the eye button to
+          restore an assignment. Nothing changes in Canvas.
+        </p>
+      )}
       <div className="filter-bar">
         <label className="search-box">
           <Search size={18} />
@@ -427,14 +499,40 @@ export function Assignments(props: ViewProps) {
           value={course}
           onChange={(e) => set("course", e.target.value)}
         >
-          <option value="">All selected courses</option>
+          <option value="">
+            {filter === "hidden" ? "All courses" : "All selected courses"}
+          </option>
           {data.courses
-            .filter((c) => !prefs.hidden.includes(c.id))
+            .filter((c) => filter === "hidden" || !prefs.hidden.includes(c.id))
             .map((c) => (
               <option key={c.id} value={c.id}>
                 {nameOf(c, prefs)}
               </option>
             ))}
+        </select>
+        {filter === "hidden" && (
+          <select
+            aria-label="Filter hidden assignments by status"
+            value={statusFilter}
+            onChange={(e) => set("status", e.target.value)}
+          >
+            <option value="all">All statuses</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="missing">Missing</option>
+            <option value="submitted">Submitted</option>
+            <option value="graded">Graded</option>
+            <option value="overdue">Overdue</option>
+          </select>
+        )}
+        <select
+          aria-label="Sort assignments"
+          value={sort}
+          onChange={(e) => set("sort", e.target.value)}
+        >
+          <option value="due">Due date: earliest first</option>
+          <option value="newest">Due date: latest first</option>
+          <option value="name">Assignment name</option>
+          <option value="course">Course name</option>
         </select>
       </div>
       <div className="filter-secondary">
@@ -443,9 +541,14 @@ export function Assignments(props: ViewProps) {
         </span>
         <div>
           <button
-            className={"filter-chip " + (filter === "overdue" ? "active" : "")}
+            className={
+              "filter-chip " + (statusFilter === "overdue" ? "active" : "")
+            }
             onClick={() =>
-              set("filter", filter === "overdue" ? "all" : "overdue")
+              set(
+                filter === "hidden" ? "status" : "filter",
+                statusFilter === "overdue" ? "all" : "overdue",
+              )
             }
           >
             <Clock3 size={14} /> Overdue
@@ -458,8 +561,19 @@ export function Assignments(props: ViewProps) {
             />{" "}
             Needs work only
           </label>
-          {(course || query || work || day || filter === "attention") && (
-            <button className="text-button" onClick={() => setParams({})}>
+          {(course ||
+            query ||
+            work ||
+            day ||
+            sort !== "due" ||
+            (filter === "hidden" && statusFilter !== "all") ||
+            filter === "attention") && (
+            <button
+              className="text-button"
+              onClick={() =>
+                setParams(filter === "hidden" ? { filter: "hidden" } : {})
+              }
+            >
               Clear filters
             </button>
           )}
@@ -489,7 +603,7 @@ export function Calendar(props: ViewProps) {
     date = new Date(`${first}T12:00:00Z`),
     start = shiftDay(first, -date.getUTCDay());
   const cells = Array.from({ length: 42 }, (_, i) => shiftDay(start, i)),
-    all = sortAssignments(visible(data, prefs));
+    all = sortAssignments(visible(data, prefs, props.hiddenAtEntry));
   const move = (n: number) => {
     const d = new Date(`${first}T12:00:00Z`);
     d.setUTCMonth(d.getUTCMonth() + n);
@@ -647,7 +761,11 @@ export function Courses(props: ViewProps) {
       >
         {courses.map((c) => {
           const slot = coursePeriod(c, prefs.coursePeriods);
-          const list = data.assignments.filter((a) => a.courseId === c.id),
+          const list = data.assignments.filter(
+              (a) =>
+                a.courseId === c.id &&
+                !prefs.hiddenAssignments.includes(assignmentKey(a)),
+            ),
             missing = list.filter(
               (a) => statusOf(a, now).missing && !statusOf(a, now).excused,
             ).length,

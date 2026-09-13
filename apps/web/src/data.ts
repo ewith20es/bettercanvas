@@ -2,6 +2,7 @@ import Dexie, { type Table } from "dexie";
 import type { Snapshot } from "../../../packages/domain/src";
 export type Preferences = {
   hidden: string[];
+  hiddenAssignments: string[];
   nicknames: Record<string, string>;
   colors: Record<string, string>;
   zone: string;
@@ -12,6 +13,7 @@ export type Preferences = {
 };
 export const defaults: Preferences = {
   hidden: [],
+  hiddenAssignments: [],
   nicknames: {},
   colors: {},
   zone: "America/New_York",

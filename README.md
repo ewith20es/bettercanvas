@@ -49,7 +49,7 @@ Set these in Render's Environment panel:
 | `NODE_VERSION`        | `24.18.0`                                                                                                                       |
 | `CANVAS_BASE_URL`     | `https://mcpsmd.instructure.com`                                                                                                |
 | `CANVAS_ACCESS_TOKEN` | Your own Canvas token; enter directly in Render                                                                                 |
-| `APP_PASSWORD`        | A separate strong app passphrase, at least 8 characters                                                                        |
+| `APP_PASSWORD`        | A separate strong app passphrase, at least 8 characters                                                                         |
 | `APP_ORIGIN`          | Optional for the default Render address; required for a custom domain. Use the exact HTTPS app origin without a trailing slash. |
 
 The backend automatically uses `RENDER_EXTERNAL_URL` for the standard Render address and listens on Render's assigned `PORT`. It serves the React build and `/api` from the same origin. Do not prefix secrets with `VITE_`.
@@ -62,6 +62,7 @@ The free service may sleep. The first visit can take longer while it wakes. Sess
 
 - Home: missing/overdue/redo work first, followed by Today, Tomorrow, Later, and undated work.
 - Assignments: search, course filter, All / Upcoming / Missing / Submitted / Graded, plus Overdue and Needs work filters.
+- Hide announcement-like assignments with the eye button. They turn gray until you leave the current page or assignment tab. Find and restore them under Hidden, with search, course/status filters, and sorting by due date, name, or course. Hiding is saved per account on this device and does not change Canvas.
 - Calendar: assignment deadlines, month navigation, selected-day agenda, and undated work.
 - Courses: show/hide courses, local nicknames and colors.
 - Settings: connection state, per-course update results, timezone, theme, optional offline data, installation instructions, clear data, and sign out.
