@@ -1015,6 +1015,13 @@ input:not([type="checkbox"]):not([type="color"]) {
   .topbar {
     font-size: 12px;
   }
+  .topbar-logo {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+  .topbar .workspace-name {
+    display: none;
+  }
   .topbar .demo-pill {
     font-size: 11px;
   }

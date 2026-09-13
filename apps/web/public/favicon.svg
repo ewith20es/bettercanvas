@@ -1,1 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="17" fill="#23674c"/><path d="M18 18h19a7 7 0 0 1 0 14H18m0 0h23a7 7 0 0 1 0 14H18V18" fill="none" stroke="white" stroke-width="5" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="mint" x1="12" y1="9" x2="53" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a6f5d6"/>
+      <stop offset="1" stop-color="#48cc98"/>
+    </linearGradient>
+    <g id="ray">
+      <path d="M24.78 9.11a24 24 0 0 1 14.44 0 7.24 7.24 0 0 1-14.44 0Z"/>
+      <circle cx="32" cy="20" r="2.15"/>
+    </g>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#103e32"/>
+  <g fill="url(#mint)">
+    <use href="#ray"/>
+    <use href="#ray" transform="rotate(45 32 32)"/>
+    <use href="#ray" transform="rotate(90 32 32)"/>
+    <use href="#ray" transform="rotate(135 32 32)"/>
+    <use href="#ray" transform="rotate(180 32 32)"/>
+    <use href="#ray" transform="rotate(225 32 32)"/>
+    <use href="#ray" transform="rotate(270 32 32)"/>
+    <use href="#ray" transform="rotate(315 32 32)"/>
+  </g>
+  <path d="m25.5 32 4.5 4.5 9-9" fill="none" stroke="#f7fff9" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

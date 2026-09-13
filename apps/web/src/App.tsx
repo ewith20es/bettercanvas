@@ -333,7 +333,15 @@ export default function App() {
       <main id="main-content">
         <header className="topbar">
           <span>
-            Workspace <ChevronRight size={14} />
+            <Link
+              className="topbar-logo"
+              to="/"
+              aria-label="Better Canvas home"
+            >
+              <img src="/favicon.svg" alt="" width="28" height="28" />
+            </Link>
+            <span className="workspace-name">Workspace</span>
+            <ChevronRight size={14} />
             <strong>{title}</strong>
           </span>
           <span className={data.demo ? "demo-pill" : "connection-pill"}>

@@ -156,6 +156,9 @@ main {
   font-weight: 500;
   color: var(--text);
 }
+.topbar-logo {
+  display: none;
+}
 .demo-pill {
   padding: 6px 11px;
   border: 1px solid #d8e5db;
