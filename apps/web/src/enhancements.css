@@ -258,6 +258,10 @@ input[type="checkbox"] {
   overflow: auto;
 }
 .tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
   background: none;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -269,6 +273,20 @@ input[type="checkbox"] {
   border-color: var(--green);
   color: var(--green);
   font-weight: 650;
+}
+.missing-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #b53d36;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 .filter-bar {
   display: flex;
@@ -327,22 +345,6 @@ input:not([type="checkbox"]):not([type="color"]) {
   display: flex;
   align-items: center;
   gap: 15px;
-}
-.filter-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: 1px solid var(--line);
-  padding: 6px 10px;
-  border-radius: 25px;
-  color: var(--muted);
-  font-size: 12px;
-}
-.filter-chip.active {
-  background: #fbe9e7;
-  color: #b2463f;
-  border-color: #e4c1bd;
 }
 .text-button {
   border: 0;
@@ -1244,7 +1246,8 @@ input:not([type="checkbox"]):not([type="color"]) {
   background: var(--paper);
   border-bottom: 1px solid var(--line);
 }
-.hidden-help {
+.hidden-help,
+.filter-help {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.6;

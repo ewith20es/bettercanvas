@@ -61,7 +61,7 @@ The free service may sleep. The first visit can take longer while it wakes. Sess
 ## Features
 
 - Home: missing/overdue/redo work first, followed by Today, Tomorrow, Later, and undated work.
-- Assignments: search, course filter, All / Upcoming / Missing / Submitted / Graded, plus Overdue and Needs work filters.
+- Assignments: search, course filter, All / Upcoming / Missing / Submitted / Graded / Hidden, plus a Needs work filter. Missing includes both Canvas-marked missing work and overdue unsubmitted assignments, with a red count badge when any remain. Hidden assignments and courses are excluded from the badge.
 - Hide announcement-like assignments with the eye button. They turn gray until you leave the current page or assignment tab. Find and restore them under Hidden, with search, course/status filters, and sorting by due date, name, or course. Hiding is saved per account on this device and does not change Canvas.
 - Calendar: assignment deadlines, month navigation, selected-day agenda, and undated work.
 - Courses: show/hide courses, local nicknames and colors.

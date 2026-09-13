@@ -39,7 +39,7 @@ Display the reason for every recommendation: “Due today at 11:59 PM,” “Can
 
 ### Assignments
 
-Search titles; filter by course; offer All / Upcoming / Missing / Submitted / Graded. Filters may overlap: a submitted assignment may also be graded. Upcoming means a future deadline, regardless of completion; add a “Needs work only” toggle. Missing means Canvas's missing flag, with a separate Overdue quick filter for the app's deadline calculation.
+Search titles; filter by course; offer All / Upcoming / Missing / Submitted / Graded / Hidden. Filters may overlap: a submitted assignment may also be graded. Upcoming means a future deadline, regardless of completion; add a “Needs work only” toggle. Missing combines Canvas's missing flag with calculated overdue, unsubmitted work, excluding excused assignments. A red count beside Missing shows the combined total across shown courses and excludes hidden assignments. Keep the original status reasons distinct on assignment rows. The Hidden view's Missing filter uses the same combined rule.
 
 All includes undated assignments. Sort by due date by default, undated last. Preserve filters in the URL for navigation and refresh.
 

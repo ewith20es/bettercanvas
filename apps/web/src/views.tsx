@@ -16,7 +16,6 @@ import {
   CheckCheck,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   ExternalLink,
   Eye,
   EyeOff,
@@ -39,6 +38,7 @@ import {
   type Assignment,
   type Course,
   type Snapshot,
+  type Status,
 } from "../../../packages/domain/src";
 import type { Preferences } from "./data";
 import {
@@ -65,6 +65,7 @@ const colorOf = (c: Course, data: Snapshot, p: Preferences) =>
     ) % courseColors.length
   ];
 const assignmentKey = (a: Assignment) => `${a.courseId}:${a.id}`;
+const missingOrOverdue = (s: Status) => !s.excused && (s.missing || s.overdue);
 const visible = (d: Snapshot, p: Preferences, hidden = p.hiddenAssignments) =>
   d.assignments.filter(
     (a) => !p.hidden.includes(a.courseId) && !hidden.includes(assignmentKey(a)),
@@ -380,13 +381,19 @@ export function Home(props: ViewProps & { incomplete: boolean }) {
 export function Assignments(props: ViewProps) {
   const { data, prefs, now } = props;
   const [params, setParams] = useSearchParams();
-  const filter = params.get("filter") ?? "all",
+  const requestedFilter = params.get("filter") ?? "all";
+  const filter = requestedFilter === "overdue" ? "missing" : requestedFilter,
     query = params.get("q") ?? "",
     course = params.get("course") ?? "",
     day = params.get("day"),
     work = params.get("work") === "1";
-  const statusFilter =
+  const requestedStatus =
     filter === "hidden" ? (params.get("status") ?? "all") : filter;
+  const statusFilter =
+    requestedStatus === "overdue" ? "missing" : requestedStatus;
+  const missingCount = visible(data, prefs).filter((a) =>
+    missingOrOverdue(statusOf(a, now)),
+  ).length;
   const set = (key: string, value: string) =>
     setParams((prev) => {
       const p = new URLSearchParams(prev);
@@ -413,16 +420,14 @@ export function Assignments(props: ViewProps) {
         statusFilter === "upcoming"
           ? !!a.dueAt && Date.parse(a.dueAt) >= now.getTime()
           : statusFilter === "missing"
-            ? s.missing && !s.excused
+            ? missingOrOverdue(s)
             : statusFilter === "submitted"
               ? s.submitted
               : statusFilter === "graded"
                 ? s.graded
-                : statusFilter === "overdue"
-                  ? s.overdue
-                  : statusFilter === "attention"
-                    ? attentionRank(a, now) < 9
-                    : true;
+                : statusFilter === "attention"
+                  ? attentionRank(a, now) < 9
+                  : true;
       return (
         match &&
         (!course || a.courseId === course) &&
@@ -461,6 +466,12 @@ export function Assignments(props: ViewProps) {
           <button
             key={id}
             className={filter === id ? "active" : ""}
+            aria-pressed={filter === id}
+            aria-label={
+              id === "missing" && missingCount
+                ? `Missing, ${missingCount} missing or overdue ${missingCount === 1 ? "assignment" : "assignments"}`
+                : name
+            }
             onClick={() =>
               setParams((prev) => {
                 const p = new URLSearchParams(prev);
@@ -475,9 +486,19 @@ export function Assignments(props: ViewProps) {
             }
           >
             {name}
+            {id === "missing" && missingCount > 0 && (
+              <span className="missing-tab-count" aria-hidden="true">
+                {missingCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
+      {filter === "missing" && (
+        <p className="filter-help">
+          Assignments marked missing in Canvas or overdue and not submitted.
+        </p>
+      )}
       {filter === "hidden" && (
         <p className="hidden-help">
           Hidden from your workspace on this device. Use the eye button to
@@ -521,7 +542,6 @@ export function Assignments(props: ViewProps) {
             <option value="missing">Missing</option>
             <option value="submitted">Submitted</option>
             <option value="graded">Graded</option>
-            <option value="overdue">Overdue</option>
           </select>
         )}
         <select
@@ -540,19 +560,6 @@ export function Assignments(props: ViewProps) {
           {filtered.length} assignments{day ? ` · ${day}` : ""}
         </span>
         <div>
-          <button
-            className={
-              "filter-chip " + (statusFilter === "overdue" ? "active" : "")
-            }
-            onClick={() =>
-              set(
-                filter === "hidden" ? "status" : "filter",
-                statusFilter === "overdue" ? "all" : "overdue",
-              )
-            }
-          >
-            <Clock3 size={14} /> Overdue
-          </button>
           <label className="check-label">
             <input
               type="checkbox"
@@ -766,8 +773,8 @@ export function Courses(props: ViewProps) {
                 a.courseId === c.id &&
                 !prefs.hiddenAssignments.includes(assignmentKey(a)),
             ),
-            missing = list.filter(
-              (a) => statusOf(a, now).missing && !statusOf(a, now).excused,
+            missing = list.filter((a) =>
+              missingOrOverdue(statusOf(a, now)),
             ).length,
             needs = list.filter((a) => statusOf(a, now).needsWork).length,
             hidden = prefs.hidden.includes(c.id);
