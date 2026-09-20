@@ -156,6 +156,21 @@ describe("Synergy gradebook normalization", () => {
       ),
     ).toThrow("account notice");
   });
+  it("recognizes the MCPS API retirement without blaming the user's credentials", () => {
+    try {
+      parseGradebook(
+        envelope(
+          '<RT_ERROR ERROR_MESSAGE="We have upgraded our server for better performance. You must update app to the new version to continue. Error Code: UPD5304-00 private-data"/>',
+        ),
+      );
+      expect.fail("An unsupported API must not return a gradebook");
+    } catch (error) {
+      expect(error).toBeInstanceOf(SynergyError);
+      expect(error).toMatchObject({ statusCode: 503 });
+      expect((error as Error).message).toContain("Login with Google");
+      expect((error as Error).message).not.toContain("private-data");
+    }
+  });
   it("rejects malformed XML, DTDs, unexpected bodies and unavailable gradebooks", () => {
     expect(() => parseGradebook("not xml")).toThrow(SynergyError);
     expect(() =>
@@ -281,6 +296,36 @@ async function login(app: Awaited<ReturnType<typeof buildApp>>) {
   return { origin, cookie: String(result.headers["set-cookie"]).split(";")[0] };
 }
 describe("private StudentVUE connection", () => {
+  it("returns useful safe connection errors instead of Fastify's generic Bad Gateway", async () => {
+    const client = fakeClient();
+    const message = "StudentVUE could not be reached. Please try again later.";
+    client.gradebook.mockRejectedValueOnce(new SynergyError(message));
+    client.gradebook.mockRejectedValueOnce(
+      new Error("private-password upstream body"),
+    );
+    const app = await buildApp(config, undefined, () => client);
+    try {
+      const headers = await login(app);
+      const request = {
+        method: "POST" as const,
+        url: "/api/gradebook/connect",
+        headers,
+        payload: { username: "student", password: "private-password" },
+      };
+      const known = await app.inject(request);
+      expect(known.statusCode).toBe(502);
+      expect(known.json()).toEqual({ error: message });
+      const unexpected = await app.inject(request);
+      expect(unexpected.statusCode).toBe(500);
+      expect(unexpected.json()).toEqual({
+        error: "The request could not be completed. Please try again.",
+      });
+      expect(unexpected.body).not.toContain("private-password");
+      expect(client.dispose).toHaveBeenCalledTimes(2);
+    } finally {
+      await app.close();
+    }
+  });
   it("requires app authentication, origin checks and valid credentials before calling Synergy", async () => {
     const client = fakeClient(),
       factory = vi.fn(() => client),
@@ -412,6 +457,7 @@ describe("private StudentVUE connection", () => {
         payload: { period: 1 },
       });
       expect(refresh.statusCode).toBe(502);
+      expect(refresh.json()).toEqual({ error: "StudentVUE is unavailable." });
       expect(
         (await app.inject({ url: "/api/gradebook", headers })).json().snapshot
           .period.index,

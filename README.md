@@ -28,6 +28,10 @@ MCPS token permission and actual account responses still need to be verified usi
 
 ## Connect StudentVUE / Synergy grades
 
+**Current MCPS limitation (verified September 19, 2026):** MCPS rejects the legacy mobile SOAP connection with `UPD5304-00`, and its StudentVUE website offers Google SSO instead of a username/password form. The connection form is therefore replaced with an explanation and a link to official StudentVUE. Gradebook preview still works; live Google sign-in is not implemented. New Render environment variables or a password change will not resolve this. A future browser connection must use the student's authenticated StudentVUE session without collecting their Google password.
+
+The following describes the existing legacy connector, which currently cannot connect to MCPS:
+
 1. Set `APP_PASSWORD` to at least 8 characters and restart the server. This protects the connection even if you are using Canvas demo mode.
 2. Sign in to Better Canvas, open **Gradebook**, and enter your MCPS student ID and StudentVUE password directly in the app. Do not send credentials in chat or commit them to GitHub.
 3. Choose a grading period and select a course to see its reported grade, categories, assignments, points, and teacher notes. Courses appear in StudentVUE period order. Use **Refresh grades** to check again.

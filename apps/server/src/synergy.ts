@@ -138,6 +138,11 @@ export function parseGradebook(
   const payload = parseXml(repairAssignmentText(result));
   if (payload.RT_ERROR) {
     const message = attr(node(payload.RT_ERROR), "ERROR_MESSAGE");
+    if (/\bUPD5304(?:-\d+)?\b/i.test(message))
+      throw new SynergyError(
+        "MCPS has disabled the older StudentVUE connection used by Better Canvas (UPD5304). Changing your password or Render settings will not fix this. Open StudentVUE and use Login with Google to view your grades.",
+        503,
+      );
     if (
       /password|user\s*name|user\s*id|login|credential|authentication/i.test(
         message,

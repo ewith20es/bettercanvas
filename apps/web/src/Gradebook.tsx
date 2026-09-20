@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type FormEvent,
-} from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -57,8 +51,6 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   const [sample, setSample] = useState<GradebookData | null>(null);
   const [busy, setBusy] = useState(true),
     [error, setError] = useState("");
-  const [username, setUsername] = useState(""),
-    [password, setPassword] = useState("");
   const [showConnect, setShowConnect] = useState(false),
     [query, setQuery] = useState("");
   const [sort, setSort] = useState("schedule");
@@ -112,8 +104,6 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
       setConnection(c);
       setSample(null);
       setShowConnect(false);
-      setPassword("");
-      setUsername("");
     } catch (e) {
       if (!active.current) return;
       setError(e instanceof Error ? e.message : "Could not load your grades.");
@@ -132,12 +122,6 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
     } finally {
       if (active.current) setBusy(false);
     }
-  };
-  const connect = async (event: FormEvent) => {
-    event.preventDefault();
-    const credentials = { username, password };
-    setPassword("");
-    await run("gradebook/connect", credentials);
   };
   const data = sample ?? connection?.snapshot;
   const selected = data?.courses.find((c) => c.id === params.get("course"));
@@ -210,64 +194,27 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
             <h3 ref={connectHeading} tabIndex={-1}>
               Connect StudentVUE
             </h3>
-            <p>Use your MCPS student ID and StudentVUE password.</p>
-            {connection?.canConnect ? (
-              <form onSubmit={(e) => void connect(e)}>
-                <label className="field-label" htmlFor="sv-username">
-                  Student ID
-                  <input
-                    id="sv-username"
-                    name="username"
-                    autoComplete="username"
-                    maxLength={128}
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
-                </label>
-                <label className="field-label" htmlFor="sv-password">
-                  StudentVUE password
-                  <input
-                    id="sv-password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    maxLength={1024}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </label>
-                <button
-                  className="button primary"
-                  type="submit"
-                  disabled={busy}
-                >
-                  <LockKeyhole size={16} /> Connect securely
-                </button>
-                <p className="gb-privacy">
-                  Your credentials stay in server memory for up to one hour,
-                  then are cleared. Disconnecting or signing out clears them
-                  sooner. Grades are not saved for offline use.
-                </p>
-              </form>
-            ) : (
-              <div className="gb-setup-note">
-                <LockKeyhole size={19} />
-                <p>
-                  {connection
-                    ? "Set APP_PASSWORD to at least 8 characters on your server, restart, and sign in to Better Canvas to enable StudentVUE."
-                    : "The app server needs to be available before you can connect. Reload the page to try again."}
-                </p>
-              </div>
-            )}
+            <div className="gb-setup-note" role="status">
+              <LockKeyhole size={19} />
+              <p>
+                MCPS uses Google sign-in and has disabled the older connection
+                this app used. Connecting your grades is currently unavailable
+                in Better Canvas. Open StudentVUE and choose Login with Google
+                to see your grades.
+              </p>
+            </div>
+            <a
+              className="button primary"
+              href={studentVue}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open StudentVUE <ExternalLink size={16} />
+            </a>
             <div className="gb-connect-links">
               <button className="text-button" onClick={preview}>
                 Preview with sample grades <ArrowRight size={14} />
               </button>
-              <a href={studentVue} target="_blank" rel="noreferrer">
-                Open StudentVUE <ExternalLink size={13} />
-              </a>
             </div>
           </div>
         </section>

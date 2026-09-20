@@ -32,6 +32,24 @@ export async function buildApp(
   if (config.production && origin.protocol !== "https:")
     throw new Error("Production APP_ORIGIN must be your exact HTTPS app URL.");
   const app = Fastify({ logger: false, bodyLimit: 8192, trustProxy: false });
+  // Register before routes/plugins: Fastify captures the handler on each route.
+  app.setErrorHandler((error, _req, reply) => {
+    const code =
+      error &&
+      typeof error === "object" &&
+      "statusCode" in error &&
+      typeof error.statusCode === "number"
+        ? error.statusCode
+        : 500;
+    reply.code(code).send({
+      error:
+        error instanceof SynergyError
+          ? error.message
+          : code === 429
+            ? "Too many attempts. Please wait before trying again."
+            : "The request could not be completed. Please try again.",
+    });
+  });
   await app.register(cookie);
   await app.register(helmet, {
     contentSecurityPolicy: config.production
@@ -183,22 +201,5 @@ export async function buildApp(
       return reply.sendFile("index.html");
     });
   }
-  app.setErrorHandler((error, _req, reply) => {
-    const code =
-      error &&
-      typeof error === "object" &&
-      "statusCode" in error &&
-      typeof error.statusCode === "number"
-        ? error.statusCode
-        : 500;
-    reply.code(code).send({
-      error:
-        error instanceof SynergyError
-          ? error.message
-          : code === 429
-            ? "Too many attempts. Please wait before trying again."
-            : "The request could not be completed. Please try again.",
-    });
-  });
   return app;
 }
