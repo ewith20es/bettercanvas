@@ -1,6 +1,6 @@
 # Better Canvas
 
-A personal, read-only companion for one MCPS Canvas account. React + TypeScript + Vite frontend, Fastify backend, and an installable PWA. Both parts deploy together as one Render web service.
+A personal, read-only companion for MCPS Canvas assignments and StudentVUE grades. React + TypeScript + Vite frontend, Fastify backend, and an installable PWA. Both parts deploy together as one Render web service.
 
 ## Try it locally
 
@@ -25,6 +25,24 @@ If a build reports that `tsc` is not recognized, run `npm install --include=dev`
 The app never requests or stores your Canvas password. If a token is configured without a sufficiently long app passphrase, the backend refuses to start. The exact Canvas origin is restricted to `https://mcpsmd.instructure.com`.
 
 MCPS token permission and actual account responses still need to be verified using your own account. Generic Canvas API support does not guarantee a school permits personal tokens.
+
+## Connect StudentVUE / Synergy grades
+
+1. Set `APP_PASSWORD` to at least 8 characters and restart the server. This protects the connection even if you are using Canvas demo mode.
+2. Sign in to Better Canvas, open **Gradebook**, and enter your MCPS student ID and StudentVUE password directly in the app. Do not send credentials in chat or commit them to GitHub.
+3. Choose a grading period and select a course to see its reported grade, categories, assignments, points, and teacher notes. Courses appear in StudentVUE period order. Use **Refresh grades** to check again.
+
+All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. The backend connects directly to `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` using the StudentVUE mobile SOAP interface. No third-party grade proxy is used. Canvas remains the source for the separate assignment/submission views.
+
+StudentVUE requires credentials with each request. They are held only in server memory for **one hour**, scoped to your signed-in app session. Disconnecting StudentVUE, signing out, or restarting the server clears them and that session's grade cache; a cleanup timer removes expired connections within 30 seconds. Nothing is saved to a database, browser storage, service-worker cache, logs, or source code. A page reload within the connection window can reuse the session. A Render restart requires reconnecting. Browser/password-manager autofill is controlled by your browser.
+
+The page uses GradeDurian-inspired grade cards, progress bars, category breakdowns, and a what-if calculator. Reported grades are displayed unchanged. The calculator adds one hypothetical assignment to Synergy's category totals, renormalizes populated category weights, and labels the result as an **estimate**. It never changes StudentVUE and does not claim to calculate an official GPA or final grade. Unknown weights or totals disable the estimate; unknown scores are not treated as zero. Schools using standards-based gradebooks receive an unsupported-format message.
+
+Use **Preview with sample grades** to explore without connecting. Samples are always labeled and are never substituted for a failed live request. Gradebook updates are manual, with a 20-second server cache to avoid duplicate requests; this page does not poll StudentVUE. On a failed update, the last successful grades remain with their timestamp and an error notice.
+
+The connection is implemented and tested using synthetic Synergy responses. A live MCPS sign-in still needs to be verified with your account. If MCPS requires a browser-only Google sign-in or blocks the mobile API for your account, check the official StudentVUE website; Better Canvas cannot bypass that restriction.
+
+References: [GradeDurian](https://github.com/btdpass/GradeDurian) (design reference), [studentvue.js](https://github.com/jshap06/studentvue.js/tree/unified) (protocol/field reference), [MCPS StudentVUE service description](https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx?WSDL). The supplied [gradebook-api](https://github.com/team-llambda/gradebook-api) wraps a separate third-party service and is not a dependency. This implementation does not copy GradeDurian's source or assets.
 
 ## Deploy frontend and backend on Render
 
@@ -65,6 +83,7 @@ The free service may sleep. The first visit can take longer while it wakes. Sess
 - Hide announcement-like assignments with the eye button. They turn gray until you leave the current page or assignment tab. Find and restore them under Hidden, with search, course/status filters, and sorting by due date, name, or course. Hiding is saved per account on this device and does not change Canvas.
 - Calendar: assignment deadlines, month navigation, selected-day agenda, and undated work.
 - Courses: show/hide courses, local nicknames and colors.
+- Gradebook: StudentVUE connection, grading periods, schedule-ordered grade cards, course/category details, searchable and sortable assignment scores, and a what-if estimate for a new assignment.
 - Settings: connection state, per-course update results, timezone, theme, optional offline data, installation instructions, clear data, and sign out.
 - Assignment details: due/submitted times, grading, missing/late flags, points, availability, and the Canvas link.
 
@@ -97,7 +116,7 @@ Regenerate the committed PWA icons after changing the favicon with `node scripts
 
 ```text
 apps/web/             React pages, styles, Dexie cache, Vite/PWA configuration
-apps/server/src/      App authentication, Canvas client, synchronization
+apps/server/src/      App authentication, Canvas sync, direct Synergy gradebook client
 packages/domain/src/ Shared data types, status rules, dates, synthetic demo data
 tests/               Domain and backend regression tests
 scripts/             PWA icon generation
@@ -105,6 +124,6 @@ docs/V1-PLAN.md       Original product and technical plan
 render.yaml          Render deployment configuration
 ```
 
-Dependencies are managed at the repository root; the small app does not need separate package installations. Grade estimates, uploads, messaging, notifications, multi-user OAuth, general school calendars, and syncing preferences across devices are outside v1.
+Dependencies are managed at the repository root; the small app does not need separate package installations. Uploads, messaging, notifications, multi-user OAuth, general school calendars, and syncing preferences across devices are outside v1.
 
 API references: [Canvas assignments](https://developerdocs.instructure.com/services/canvas/resources/assignments), [submissions](https://developerdocs.instructure.com/services/canvas/resources/submissions), [pagination](https://developerdocs.instructure.com/services/canvas/basics/file.pagination), [authentication](https://developerdocs.instructure.com/services/canvas/oauth2/file.oauth).

@@ -10,6 +10,7 @@ import {
   AlertCircle,
   ArrowRight,
   BookOpen,
+  BookOpenCheck,
   CalendarDays,
   ChevronRight,
   Home as HomeIcon,
@@ -20,6 +21,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
+import { Gradebook } from "./Gradebook";
 import type { Assignment, Snapshot } from "../../../packages/domain/src";
 import {
   accountKey,
@@ -51,6 +53,7 @@ const navItems = [
   { icon: LayoutList, name: "Assignments", path: "/assignments" },
   { icon: CalendarDays, name: "Calendar", path: "/calendar" },
   { icon: BookOpen, name: "Courses", path: "/courses" },
+  { icon: BookOpenCheck, name: "Gradebook", path: "/gradebook" },
   { icon: SettingsIcon, name: "Settings", path: "/settings" },
 ];
 export default function App() {
@@ -302,7 +305,7 @@ export default function App() {
   return (
     <div className="shell">
       <a href="#main-content" className="skip-link">
-        Skip to assignments
+        Skip to content
       </a>
       <aside className="sidebar">
         <Link className="brand" to="/">
@@ -312,9 +315,16 @@ export default function App() {
         <div className="workspace-label">MY WORKSPACE</div>
         <nav aria-label="Main navigation">
           {navItems.map(({ icon: Icon, name, path }) => (
-            <NavLink key={path} to={path} end>
+            <NavLink key={path} to={path} end aria-label={name}>
               <Icon size={20} />
-              {name}
+              <span className="nav-label-full">{name}</span>
+              <span className="nav-label-short" aria-hidden="true">
+                {name === "Assignments"
+                  ? "Tasks"
+                  : name === "Gradebook"
+                    ? "Grades"
+                    : name}
+              </span>
             </NavLink>
           ))}
         </nav>
@@ -350,7 +360,11 @@ export default function App() {
             ) : data.demo ? null : (
               <ShieldCheck size={14} />
             )}{" "}
-            {data.demo ? "Demo workspace" : freshness}
+            {title === "Gradebook"
+              ? "StudentVUE / Synergy"
+              : data.demo
+                ? "Demo workspace"
+                : freshness}
           </span>
         </header>
         <div className="page">
@@ -378,25 +392,28 @@ export default function App() {
                         "Every assignment, with its status in plain sight.",
                       Calendar: "A little more perspective on what’s ahead.",
                       Courses: "Make room for the classes that matter.",
+                      Gradebook: "Your StudentVUE grades, with a clearer view.",
                       Settings: "Make this workspace yours.",
                     } as Record<string, string>
                   )[title]
                 }
               </p>
             </div>
-            <button
-              className="button refresh-button"
-              aria-label={
-                busy ? "Refreshing assignments" : "Refresh assignments"
-              }
-              disabled={busy || offline}
-              onClick={() => void refresh()}
-            >
-              <RefreshCw size={16} className={busy ? "spin" : ""} />
-              <span>{busy ? "Refreshing" : "Refresh"}</span>
-            </button>
+            {title !== "Gradebook" && (
+              <button
+                className="button refresh-button"
+                aria-label={
+                  busy ? "Refreshing assignments" : "Refresh assignments"
+                }
+                disabled={busy || offline}
+                onClick={() => void refresh()}
+              >
+                <RefreshCw size={16} className={busy ? "spin" : ""} />
+                <span>{busy ? "Refreshing" : "Refresh"}</span>
+              </button>
+            )}
           </div>
-          {data.demo && (
+          {data.demo && title !== "Gradebook" && (
             <div className="demo-banner">
               <span>
                 Sample assignments · This is a preview of your workspace.
@@ -406,21 +423,22 @@ export default function App() {
               </Link>
             </div>
           )}
-          {(offline || incomplete || stale || error) && (
-            <div role="status" className="notice">
-              <AlertCircle size={18} />
-              <div>
-                {error ||
-                  data.error ||
-                  (offline
-                    ? "Offline — showing saved assignments."
-                    : incomplete
-                      ? "Some courses could not update. Previous data is still shown."
-                      : "These assignments have not been checked in more than 15 minutes.")}{" "}
-                <Link to="/settings">View connection details</Link>
+          {title !== "Gradebook" &&
+            (offline || incomplete || stale || error) && (
+              <div role="status" className="notice">
+                <AlertCircle size={18} />
+                <div>
+                  {error ||
+                    data.error ||
+                    (offline
+                      ? "Offline — showing saved assignments."
+                      : incomplete
+                        ? "Some courses could not update. Previous data is still shown."
+                        : "These assignments have not been checked in more than 15 minutes.")}{" "}
+                  <Link to="/settings">View connection details</Link>
+                </div>
               </div>
-            </div>
-          )}
+            )}
           {needRefresh && (
             <div className="notice">
               An app update is ready.{" "}
@@ -442,6 +460,10 @@ export default function App() {
             <Route path="/assignments" element={<Assignments {...props} />} />
             <Route path="/calendar" element={<Calendar {...props} />} />
             <Route path="/courses" element={<Courses {...props} />} />
+            <Route
+              path="/gradebook"
+              element={<Gradebook demoWorkspace={data.demo} />}
+            />
             <Route
               path="/settings"
               element={
@@ -467,17 +489,19 @@ export default function App() {
               }
             />
           </Routes>
-          <footer className="page-footer">
-            <span>
-              {data.demo
-                ? "Demo data"
-                : `Checked ${data.fetchedAt ? fmtFull(data.fetchedAt, prefs.zone) : "not yet"}`}{" "}
-              · {prefs.zone.replaceAll("_", " ")}
-            </span>
-            <a href={data.account.origin} target="_blank" rel="noreferrer">
-              Open Canvas ↗
-            </a>
-          </footer>
+          {title !== "Gradebook" && (
+            <footer className="page-footer">
+              <span>
+                {data.demo
+                  ? "Demo data"
+                  : `Checked ${data.fetchedAt ? fmtFull(data.fetchedAt, prefs.zone) : "not yet"}`}{" "}
+                · {prefs.zone.replaceAll("_", " ")}
+              </span>
+              <a href={data.account.origin} target="_blank" rel="noreferrer">
+                Open Canvas ↗
+              </a>
+            </footer>
+          )}
         </div>
       </main>
       {selected && (

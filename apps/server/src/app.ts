@@ -9,6 +9,8 @@ import { resolve } from "node:path";
 import { demoSnapshot } from "../../../packages/domain/src/demo";
 import type { Snapshot } from "../../../packages/domain/src";
 import { CanvasClient } from "./canvas";
+import { registerGradebook, type SynergyFactory } from "./gradebook-routes";
+import { SynergyError } from "./synergy";
 
 export type Config = {
   origin: string;
@@ -20,6 +22,7 @@ export type Config = {
 export async function buildApp(
   config: Config,
   client?: Pick<CanvasClient, "sync">,
+  synergyFactory?: SynergyFactory,
 ) {
   if (config.token && (!config.password || config.password.length < 8))
     throw new Error(
@@ -84,6 +87,11 @@ export async function buildApp(
       return reply.code(401).send({ error: "Sign in to view your workspace." });
     }
   });
+  const gradebook = registerGradebook(app, {
+    enabled: (config.password?.length ?? 0) >= 8,
+    sessions,
+    factory: synergyFactory,
+  });
   app.get("/api/health", async () => ({ ok: true }));
   app.get("/api/bootstrap", async (req) => ({
     authenticated: validSession(req.cookies.bc_session),
@@ -107,8 +115,19 @@ export async function buildApp(
       }
       // Expired sessions and a bounded active-session count keep memory use predictable.
       for (const [key, expiry] of sessions)
-        if (expiry <= Date.now()) sessions.delete(key);
-      if (sessions.size >= 30) sessions.delete(sessions.keys().next().value!);
+        if (expiry <= Date.now()) {
+          sessions.delete(key);
+          gradebook.forget(key);
+        }
+      if (sessions.size >= 30) {
+        const oldest = sessions.keys().next().value!;
+        sessions.delete(oldest);
+        gradebook.forget(oldest);
+      }
+      if (req.cookies.bc_session) {
+        gradebook.forget(req.cookies.bc_session);
+        sessions.delete(req.cookies.bc_session);
+      }
       const session = randomBytes(32).toString("hex");
       sessions.set(session, Date.now() + sessionAge);
       reply.setCookie("bc_session", session, {
@@ -122,6 +141,7 @@ export async function buildApp(
     },
   );
   app.post("/api/logout", async (req, reply) => {
+    gradebook.forget(req.cookies.bc_session ?? "");
     sessions.delete(req.cookies.bc_session ?? "");
     reply.clearCookie("bc_session", { path: "/" });
     return { ok: true };
@@ -171,14 +191,14 @@ export async function buildApp(
       typeof error.statusCode === "number"
         ? error.statusCode
         : 500;
-    reply
-      .code(code)
-      .send({
-        error:
-          code === 429
+    reply.code(code).send({
+      error:
+        error instanceof SynergyError
+          ? error.message
+          : code === 429
             ? "Too many attempts. Please wait before trying again."
             : "The request could not be completed. Please try again.",
-      });
+    });
   });
   return app;
 }
