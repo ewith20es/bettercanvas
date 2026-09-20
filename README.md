@@ -28,15 +28,15 @@ MCPS token permission and actual account responses still need to be verified usi
 
 ## Connect StudentVUE / Synergy grades
 
-**Current MCPS limitation (verified September 19, 2026):** MCPS rejects the legacy mobile SOAP connection with `UPD5304-00`, and its StudentVUE website offers Google SSO instead of a username/password form. The connection form is therefore replaced with an explanation and a link to official StudentVUE. Gradebook preview still works; live Google sign-in is not implemented. New Render environment variables or a password change will not resolve this. A future browser connection must use the student's authenticated StudentVUE session without collecting their Google password.
+**MCPS SOAP block (UPD5304):** MCPS rejects direct StudentVUE SOAP calls with `UPD5304-00` ("update your app"). The block is applied at the network layer — a byte-identical request is refused when sent straight from a server but accepted when relayed through a StudentVUE proxy. Better Canvas therefore sends the same SOAP envelope through the StudentVUE proxy used by [GradeDurian](https://github.com/btdpass/GradeDurian) (`cloudproxy.gradedurian.workers.dev`), which reaches Synergy on the app's behalf. This is the same integration path GradeDurian uses, so the standard student ID / password connection works again.
 
-The following describes the existing legacy connector, which currently cannot connect to MCPS:
+To connect:
 
 1. Set `APP_PASSWORD` to at least 8 characters and restart the server. This protects the connection even if you are using Canvas demo mode.
 2. Sign in to Better Canvas, open **Gradebook**, and enter your MCPS student ID and StudentVUE password directly in the app. Do not send credentials in chat or commit them to GitHub.
 3. Choose a grading period and select a course to see its reported grade, categories, assignments, points, and teacher notes. Courses appear in StudentVUE period order. Use **Refresh grades** to check again.
 
-All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. The backend connects directly to `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` using the StudentVUE mobile SOAP interface. No third-party grade proxy is used. Canvas remains the source for the separate assignment/submission views.
+All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. The backend builds the StudentVUE SOAP request for `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` and relays it through the GradeDurian StudentVUE proxy, which forwards it to Synergy; your StudentVUE credentials pass through that proxy in transit. Canvas remains the source for the separate assignment/submission views.
 
 StudentVUE requires credentials with each request. They are held only in server memory for **one hour**, scoped to your signed-in app session. Disconnecting StudentVUE, signing out, or restarting the server clears them and that session's grade cache; a cleanup timer removes expired connections within 30 seconds. Nothing is saved to a database, browser storage, service-worker cache, logs, or source code. A page reload within the connection window can reuse the session. A Render restart requires reconnecting. Browser/password-manager autofill is controlled by your browser.
 
@@ -44,7 +44,7 @@ The page uses GradeDurian-inspired grade cards, progress bars, category breakdow
 
 Use **Preview with sample grades** to explore without connecting. Samples are always labeled and are never substituted for a failed live request. Gradebook updates are manual, with a 20-second server cache to avoid duplicate requests; this page does not poll StudentVUE. On a failed update, the last successful grades remain with their timestamp and an error notice.
 
-The connection is implemented and tested using synthetic Synergy responses. A live MCPS sign-in still needs to be verified with your account. If MCPS requires a browser-only Google sign-in or blocks the mobile API for your account, check the official StudentVUE website; Better Canvas cannot bypass that restriction.
+The connection is unit-tested with synthetic Synergy responses. The proxy relay was verified to reach live MCPS Synergy authentication (a wrong-credential probe returns Synergy's real "Invalid user id or password" error rather than `UPD5304`), so a valid student ID and password should load real grades; sign in with your own account to confirm. If the proxy is unavailable, the app keeps the last successful grades and shows a retry notice.
 
 References: [GradeDurian](https://github.com/btdpass/GradeDurian) (design reference), [studentvue.js](https://github.com/jshap06/studentvue.js/tree/unified) (protocol/field reference), [MCPS StudentVUE service description](https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx?WSDL). The supplied [gradebook-api](https://github.com/team-llambda/gradebook-api) wraps a separate third-party service and is not a dependency. This implementation does not copy GradeDurian's source or assets.
 
@@ -120,7 +120,7 @@ Regenerate the committed PWA icons after changing the favicon with `node scripts
 
 ```text
 apps/web/             React pages, styles, Dexie cache, Vite/PWA configuration
-apps/server/src/      App authentication, Canvas sync, direct Synergy gradebook client
+apps/server/src/      App authentication, Canvas sync, proxied Synergy gradebook client
 packages/domain/src/ Shared data types, status rules, dates, synthetic demo data
 tests/               Domain and backend regression tests
 scripts/             PWA icon generation

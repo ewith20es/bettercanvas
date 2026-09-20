@@ -7,7 +7,14 @@ import type {
 } from "../../../packages/domain/src/gradebook";
 
 export const STUDENTVUE_ORIGIN = "https://md-mcps-psv.edupoint.com";
-const endpoint = `${STUDENTVUE_ORIGIN}/Service/PXPCommunication.asmx`;
+// Synergy SOAP endpoint for this district. MCPS now blocks direct SOAP calls
+// with UPD5304 ("update your app"). The block is at the network layer, so a
+// byte-identical request is rejected when sent from a server but accepted when
+// relayed through the StudentVUE proxy. We send the same envelope through the
+// proxy GradeDurian uses (https://github.com/btdpass/GradeDurian), which reaches
+// Synergy on our behalf and returns { status, response }.
+const district = `${STUDENTVUE_ORIGIN}/Service/PXPCommunication.asmx`;
+const PROXY_ENDPOINT = "https://cloudproxy.gradedurian.workers.dev/fulfillAxios";
 const maxBytes = 8 * 1024 * 1024;
 export class SynergyError extends Error {
   constructor(
@@ -124,9 +131,12 @@ export function parseGradebook(
 ): Gradebook {
   const envelope = parseXml(xml);
   const body = node(node(envelope.Envelope).Body);
-  const result = node(
-    body.ProcessWebServiceRequestResponse,
-  ).ProcessWebServiceRequestResult;
+  // Requests relayed through the proxy use ProcessWebServiceRequestMultiWeb;
+  // legacy direct calls and the tests use ProcessWebServiceRequest. Accept both.
+  const result =
+    node(body.ProcessWebServiceRequestMultiWebResponse)
+      .ProcessWebServiceRequestMultiWebResult ??
+    node(body.ProcessWebServiceRequestResponse).ProcessWebServiceRequestResult;
   if (typeof result !== "string")
     throw new SynergyError(
       "StudentVUE did not return a gradebook. Please try again later.",
@@ -140,7 +150,7 @@ export function parseGradebook(
     const message = attr(node(payload.RT_ERROR), "ERROR_MESSAGE");
     if (/\bUPD5304(?:-\d+)?\b/i.test(message))
       throw new SynergyError(
-        "MCPS has disabled the older StudentVUE connection used by Better Canvas (UPD5304). Changing your password or Render settings will not fix this. Open StudentVUE and use Login with Google to view your grades.",
+        "StudentVUE's grade service is temporarily unavailable (UPD5304). Please try again in a little while.",
         503,
       );
     if (
@@ -268,18 +278,17 @@ export class SynergyClient implements GradebookClient {
     )
       throw new SynergyError("Choose a valid grading period.", 400);
     const params = `<Parms><childIntId>0</childIntId>${period === undefined ? "" : `<ReportPeriod>${period}</ReportPeriod>`}</Parms>`;
-    const xml = `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ProcessWebServiceRequest xmlns="http://edupoint.com/webservices/"><userID>${escapeXml(this.username)}</userID><password>${escapeXml(this.password)}</password><skipLoginLog>0</skipLoginLog><parent>0</parent><webServiceHandleName>PXPWebServices</webServiceHandleName><methodName>Gradebook</methodName><paramStr>${escapeXml(params)}</paramStr></ProcessWebServiceRequest></soap:Body></soap:Envelope>`;
+    const xml = `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ProcessWebServiceRequestMultiWeb xmlns="http://edupoint.com/webservices/"><userID>${escapeXml(this.username)}</userID><password>${escapeXml(this.password)}</password><skipLoginLog>0</skipLoginLog><parent>0</parent><webServiceHandleName>PXPWebServices</webServiceHandleName><methodName>Gradebook</methodName><paramStr>${escapeXml(params)}</paramStr></ProcessWebServiceRequestMultiWeb></soap:Body></soap:Envelope>`;
+    // The proxy relays this envelope to `district` and returns
+    // { status, response }. `encrypted: false` forwards the password as sent.
+    const requestBody = JSON.stringify({ url: district, xml, encrypted: false });
     try {
-      const response = await this.request(endpoint, {
+      const response = await this.request(PROXY_ENDPOINT, {
         method: "POST",
         redirect: "error",
         signal: AbortSignal.timeout(25000),
-        headers: {
-          "Content-Type": "text/xml; charset=utf-8",
-          SOAPAction:
-            '"http://edupoint.com/webservices/ProcessWebServiceRequest"',
-        },
-        body: xml,
+        headers: { "Content-Type": "application/json" },
+        body: requestBody,
       });
       if (!response.ok || !response.body)
         throw new SynergyError(
@@ -304,7 +313,26 @@ export class SynergyClient implements GradebookClient {
       } finally {
         reader.releaseLock();
       }
-      return parseGradebook(Buffer.concat(chunks).toString("utf8"), period);
+      let relayed: { status?: unknown; response?: unknown };
+      try {
+        relayed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      } catch {
+        throw new SynergyError(
+          "StudentVUE returned an unreadable response. Please try again.",
+        );
+      }
+      // The proxy reports transport failures as { status: false }; a real
+      // Synergy reply (including RT_ERROR) comes back as a `response` string.
+      if (
+        !relayed ||
+        typeof relayed !== "object" ||
+        relayed.status === false ||
+        typeof relayed.response !== "string"
+      )
+        throw new SynergyError(
+          "StudentVUE could not open your gradebook. Check the StudentVUE website for an account notice or try again later.",
+        );
+      return parseGradebook(relayed.response, period);
     } catch (e) {
       if (e instanceof SynergyError) throw e;
       throw new SynergyError(

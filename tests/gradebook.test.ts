@@ -12,6 +12,10 @@ const escape = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const envelope = (xml: string) =>
   `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ProcessWebServiceRequestResponse><ProcessWebServiceRequestResult>${escape(xml)}</ProcessWebServiceRequestResult></ProcessWebServiceRequestResponse></soap:Body></soap:Envelope>`;
+// The proxy relays ProcessWebServiceRequestMultiWeb, so live replies arrive in
+// this wrapper. This is the shape parseGradebook actually sees in production.
+const multiWebEnvelope = (xml: string) =>
+  `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ProcessWebServiceRequestMultiWebResponse><ProcessWebServiceRequestMultiWebResult>${escape(xml)}</ProcessWebServiceRequestMultiWebResult></ProcessWebServiceRequestMultiWebResponse></soap:Body></soap:Envelope>`;
 const fixture = `<Gradebook Type="Traditional" ErrorMessage="" HidePercentSecondary="false">
 <ReportingPeriods><ReportPeriod Index="0" GradePeriod="Q1" StartDate="8/25/2026" EndDate="10/30/2026"/><ReportPeriod Index="1" GradePeriod="Q2"/></ReportingPeriods>
 <ReportingPeriod GradePeriod="Q1" StartDate="8/25/2026" EndDate="10/30/2026"/>
@@ -60,6 +64,20 @@ describe("Synergy gradebook normalization", () => {
       missing: false,
     });
     expect(mark.assignments[3]).toMatchObject({ earned: 5, possible: 0 });
+  });
+  it("parses the ProcessWebServiceRequestMultiWeb wrapper used in production", () => {
+    // Live proxy replies come back in the MultiWeb envelope, not the legacy one.
+    const gb = parseGradebook(multiWebEnvelope(fixture));
+    expect(gb.source).toBe("synergy");
+    expect(gb.courses.map((c) => c.period)).toEqual([0, 9]);
+    expect(gb.courses[1].marks[0].percent).toBe(87.5);
+    expect(() =>
+      parseGradebook(
+        multiWebEnvelope(
+          '<RT_ERROR ERROR_MESSAGE="Invalid user id or password (ID: 1)"/>',
+        ),
+      ),
+    ).toThrow("did not accept");
   });
   it("does not turn blank or suppressed grades into zero", () => {
     expect(
@@ -167,7 +185,7 @@ describe("Synergy gradebook normalization", () => {
     } catch (error) {
       expect(error).toBeInstanceOf(SynergyError);
       expect(error).toMatchObject({ statusCode: 503 });
-      expect((error as Error).message).toContain("Login with Google");
+      expect((error as Error).message).toContain("UPD5304");
       expect((error as Error).message).not.toContain("private-data");
     }
   });
@@ -185,22 +203,27 @@ describe("Synergy gradebook normalization", () => {
       parseGradebook(envelope('<Gradebook Type="Standards"/>')),
     ).toThrow("does not support");
   });
-  it("sends escaped credentials only to the fixed MCPS endpoint, with no redirects", async () => {
+  it("relays escaped credentials only through the proxy to the fixed MCPS endpoint, with no redirects", async () => {
     const fetcher = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(new Response(envelope(fixture)));
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ status: true, response: envelope(fixture) }),
+        ),
+      );
     const client = new SynergyClient("123<456", 'pw&"<>', fetcher);
     await client.gradebook(0);
     const [url, options] = fetcher.mock.calls[0];
-    expect(url).toBe(
+    expect(url).toBe("https://cloudproxy.gradedurian.workers.dev/fulfillAxios");
+    expect(options?.redirect).toBe("error");
+    const payload = JSON.parse(String(options?.body));
+    expect(payload.url).toBe(
       "https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx",
     );
-    expect(options?.redirect).toBe("error");
-    expect(options?.body).toContain("123&lt;456");
-    expect(options?.body).toContain("pw&amp;&quot;&lt;&gt;");
-    expect(options?.body).toContain(
-      "&lt;ReportPeriod&gt;0&lt;/ReportPeriod&gt;",
-    );
+    expect(payload.encrypted).toBe(false);
+    expect(payload.xml).toContain("123&lt;456");
+    expect(payload.xml).toContain("pw&amp;&quot;&lt;&gt;");
+    expect(payload.xml).toContain("&lt;ReportPeriod&gt;0&lt;/ReportPeriod&gt;");
     client.dispose();
     await expect(client.gradebook()).rejects.toThrow("Reconnect");
     expect(fetcher).toHaveBeenCalledTimes(1);
@@ -214,6 +237,33 @@ describe("Synergy gradebook normalization", () => {
     await expect(client.gradebook()).rejects.toThrow(
       "Could not reach StudentVUE",
     );
+  });
+  it("reports a proxy transport failure without leaking its message", async () => {
+    const client = new SynergyClient(
+      "student",
+      "secret",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ status: false, message: "proxy internal secret" }),
+          ),
+        ),
+    );
+    await expect(client.gradebook()).rejects.toThrow(
+      "could not open your gradebook",
+    );
+    await expect(client.gradebook()).rejects.not.toThrow("proxy internal");
+  });
+  it("treats a non-JSON proxy body as an unreadable response", async () => {
+    const client = new SynergyClient(
+      "student",
+      "secret",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response("<html>502 Bad Gateway</html>")),
+    );
+    await expect(client.gradebook()).rejects.toThrow("unreadable response");
   });
 });
 
