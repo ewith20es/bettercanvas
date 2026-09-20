@@ -2,11 +2,17 @@ import { describe, expect, it, vi } from "vitest";
 import { buildApp } from "../apps/server/src/app";
 import {
   parseGradebook,
+  parseTodaySchedule,
   SynergyClient,
   SynergyError,
 } from "../apps/server/src/synergy";
 import { demoGradebook } from "../packages/domain/src/gradebook-demo";
-import { estimateGrade, hasGradeScore } from "../packages/domain/src/gradebook";
+import {
+  activeMeeting,
+  clockLabel,
+  estimateGrade,
+  hasGradeScore,
+} from "../packages/domain/src/gradebook";
 
 const escape = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -322,6 +328,145 @@ describe("what-if estimates", () => {
       estimateGrade(categories, { category: "Tests", earned: 5, possible: 0 }),
     ).toBeNull();
   });
+  it("adds several hypothetical assignments, including two in one category", () => {
+    // Tests 90/110 = 81.8182, Practice 110/110 = 100 -> .9/.1 split = 83.6364
+    expect(
+      estimateGrade(categories, [
+        { category: "Tests", earned: 10, possible: 10 },
+        { category: "Practice", earned: 10, possible: 10 },
+      ]),
+    ).toBeCloseTo(83.6364, 3);
+    // Two entries in one category accumulate: 120/140 = 85.7143 -> 87.1429
+    expect(
+      estimateGrade(categories, [
+        { category: "Tests", earned: 20, possible: 20 },
+        { category: "Tests", earned: 20, possible: 20 },
+      ]),
+    ).toBeCloseTo(87.1429, 3);
+    // Splitting one entry in two must equal the combined entry.
+    expect(
+      estimateGrade(categories, [
+        { category: "Tests", earned: 20, possible: 20 },
+        { category: "Tests", earned: 20, possible: 20 },
+      ]),
+    ).toBe(
+      estimateGrade(categories, {
+        category: "Tests",
+        earned: 40,
+        possible: 40,
+      }),
+    );
+    // An empty list must match the untouched baseline.
+    expect(estimateGrade(categories, [])).toBe(estimateGrade(categories));
+    // One invalid entry rejects the whole projection.
+    expect(
+      estimateGrade(categories, [
+        { category: "Tests", earned: 10, possible: 10 },
+        { category: "No such category", earned: 1, possible: 1 },
+      ]),
+    ).toBeNull();
+  });
+});
+
+describe("class countdown", () => {
+  const meetings = [
+    {
+      name: "Homeroom",
+      period: 0,
+      room: "332",
+      teacher: "",
+      start: 480,
+      end: 495,
+    },
+    {
+      name: "AP US History A",
+      period: 9,
+      room: "242",
+      teacher: "",
+      start: 500,
+      end: 550,
+    },
+    {
+      name: "AP US History A",
+      period: 9,
+      room: "242",
+      teacher: "",
+      start: 550,
+      end: 600,
+    },
+  ];
+  it("finds the class in session and extends across back-to-back blocks", () => {
+    expect(activeMeeting(meetings, 485)).toMatchObject({
+      name: "Homeroom",
+      end: 495,
+    });
+    // Both AP US History blocks are one class, so it ends at 600, not 550.
+    expect(activeMeeting(meetings, 520)).toMatchObject({
+      name: "AP US History A",
+      period: 9,
+      end: 600,
+    });
+    expect(activeMeeting(meetings, 497)).toBeNull();
+    expect(activeMeeting([], 500)).toBeNull();
+  });
+  it("formats clock labels around noon and midnight", () => {
+    expect(clockLabel(0)).toBe("12:00 AM");
+    expect(clockLabel(720)).toBe("12:00 PM");
+    expect(clockLabel(555)).toBe("9:15 AM");
+    expect(clockLabel(785)).toBe("1:05 PM");
+  });
+});
+
+describe("today's bell schedule", () => {
+  const scheduleXml = (classes: string) =>
+    multiWebEnvelope(
+      `<StudentClassSchedule TermIndexName="Term 1"><TodayScheduleInfoData><SchoolInfos><SchoolInfo SchoolName="Blair"><Classes>${classes}</Classes></SchoolInfo></SchoolInfos></TodayScheduleInfoData></StudentClassSchedule>`,
+    );
+  it("parses today's classes into minutes and sorts them", () => {
+    const schedule = parseTodaySchedule(
+      scheduleXml(
+        '<ClassInfo ClassName="AP US History A" Period="9" RoomName="242" TeacherName="Sample Teacher" StartTime="10:20 AM" EndTime="11:10 AM"/><ClassInfo ClassName="Homeroom" Period="0" RoomName="332" TeacherName="" StartTime="8:00 AM" EndTime="8:15 AM"/>',
+      ),
+    );
+    expect(schedule.meetings).toHaveLength(2);
+    expect(schedule.meetings[0]).toMatchObject({
+      name: "Homeroom",
+      period: 0,
+      start: 480,
+      end: 495,
+    });
+    expect(schedule.meetings[1]).toMatchObject({
+      name: "AP US History A",
+      period: 9,
+      room: "242",
+      start: 620,
+      end: 670,
+    });
+  });
+  it("drops unparseable or reversed times and tolerates an empty day", () => {
+    expect(
+      parseTodaySchedule(
+        scheduleXml(
+          '<ClassInfo ClassName="Broken" StartTime="" EndTime="9:00 AM"/><ClassInfo ClassName="Backwards" StartTime="11:00 AM" EndTime="10:00 AM"/><ClassInfo ClassName="Bad hour" StartTime="19:00 PM" EndTime="20:00 PM"/>',
+        ),
+      ).meetings,
+    ).toEqual([]);
+    expect(
+      parseTodaySchedule(
+        multiWebEnvelope(
+          "<StudentClassSchedule><TodayScheduleInfoData><SchoolInfos/></TodayScheduleInfoData></StudentClassSchedule>",
+        ),
+      ).meetings,
+    ).toEqual([]);
+  });
+  it("reports StudentVUE schedule errors safely", () => {
+    expect(() =>
+      parseTodaySchedule(
+        multiWebEnvelope('<RT_ERROR ERROR_MESSAGE="private detail"/>'),
+      ),
+    ).toThrow("could not open your schedule");
+    expect(() => parseTodaySchedule("not xml")).toThrow(SynergyError);
+  });
 });
 
 const origin = "https://bettercanvas.example";
@@ -334,6 +479,10 @@ const config = {
 const liveSnapshot = () => ({ ...demoGradebook(), demo: false });
 const fakeClient = () => ({
   gradebook: vi.fn().mockResolvedValue(liveSnapshot()),
+  schedule: vi.fn().mockResolvedValue({
+    fetchedAt: "2026-09-20T12:00:00Z",
+    meetings: [],
+  }),
   dispose: vi.fn(),
 });
 async function login(app: Awaited<ReturnType<typeof buildApp>>) {
@@ -564,6 +713,9 @@ describe("private StudentVUE connection", () => {
           finish = resolve;
         });
       },
+      schedule: vi
+        .fn()
+        .mockResolvedValue({ fetchedAt: "2026-09-20T12:00:00Z", meetings: [] }),
       dispose: vi.fn(),
     };
     const app = await buildApp(config, undefined, () => client);

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type {
   Gradebook,
   GradebookConnection,
+  TodaySchedule,
 } from "../../../packages/domain/src/gradebook";
 import { SynergyClient, SynergyError, type GradebookClient } from "./synergy";
 
@@ -14,6 +15,7 @@ type Connection = {
   client: GradebookClient;
   expires: number;
   snapshot: Gradebook | null;
+  schedule: TodaySchedule | null;
   cache: Map<number, Gradebook>;
   busy: boolean;
 };
@@ -61,6 +63,7 @@ export function registerGradebook(
       canConnect: options.enabled,
       expiresAt: c ? new Date(c.expires).toISOString() : null,
       snapshot: c?.snapshot ?? null,
+      schedule: c?.schedule ?? null,
     };
   };
   const assertActive = (key: string, c: Connection) => {
@@ -86,23 +89,19 @@ export function registerGradebook(
     async (req, reply) => {
       const key = req.cookies.bc_session ?? "";
       if (!options.enabled || !sessionValid(key))
-        return reply
-          .code(403)
-          .send({
-            error:
-              "Set an app passphrase of at least 8 characters and sign in to Better Canvas before connecting StudentVUE.",
-          });
+        return reply.code(403).send({
+          error:
+            "Set an app passphrase of at least 8 characters and sign in to Better Canvas before connecting StudentVUE.",
+        });
       const parsed = credentials.safeParse(req.body);
       if (!parsed.success)
         return reply
           .code(400)
           .send({ error: "Enter your StudentVUE student ID and password." });
       if (get(key)?.busy)
-        return reply
-          .code(409)
-          .send({
-            error: "A StudentVUE request is still running. Please wait.",
-          });
+        return reply.code(409).send({
+          error: "A StudentVUE request is still running. Please wait.",
+        });
       forget(key);
       const { username, password } = parsed.data;
       const c: Connection = {
@@ -112,6 +111,7 @@ export function registerGradebook(
         ),
         expires: Date.now() + connectionAge,
         snapshot: null,
+        schedule: null,
         cache: new Map(),
         busy: true,
       };
@@ -121,6 +121,14 @@ export function registerGradebook(
         assertActive(key, c);
         c.snapshot = snapshot;
         c.cache.set(snapshot.period.index, snapshot);
+        // Today's bell schedule only drives the class countdown, so a district
+        // that does not publish one must never fail the connection.
+        try {
+          const schedule = await c.client.schedule();
+          if (connections.get(key) === c) c.schedule = schedule;
+        } catch {
+          /* countdown stays hidden */
+        }
         return state(key);
       } catch (e) {
         if (connections.get(key) === c) forget(key);
@@ -147,11 +155,9 @@ export function registerGradebook(
           .send({ error: "Choose a valid grading period." });
       const period = parsed.data.period ?? c.snapshot.period.index;
       if (!c.snapshot.periods.some((p) => p.index === period))
-        return reply
-          .code(400)
-          .send({
-            error: "That grading period is not available in StudentVUE.",
-          });
+        return reply.code(400).send({
+          error: "That grading period is not available in StudentVUE.",
+        });
       if (c.busy)
         return reply
           .code(409)

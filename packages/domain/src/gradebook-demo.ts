@@ -1,4 +1,34 @@
-import type { Gradebook, GradeCourse } from "./gradebook";
+import type { Gradebook, GradeCourse, TodaySchedule } from "./gradebook";
+
+// A stand-in bell schedule so the class countdown is visible in the preview.
+// Blocks are anchored to the viewer's current hour so one class is always in
+// session; real connections use StudentVUE's own schedule instead.
+export function demoSchedule(nowMinutes: number): TodaySchedule {
+  const rows: [number, string, string][] = [
+    [1, "Hon English 9A", "P14"],
+    [2, "Hon Spanish 3A", "163"],
+    [3, "Photography 1A", "004"],
+    [4, "Mag Functions A", "309"],
+    [6, "Adv Sci1 Physics DP", "215"],
+    [7, "Research Exp ProbSolv 1A", "211"],
+    [8, "Fnd Computer Sci A", "328"],
+    [9, "AP US History A", "242"],
+  ];
+  // Put the current moment partway through the fourth block.
+  const first = nowMinutes - 3 * 50 - 20;
+  return {
+    fetchedAt: new Date().toISOString(),
+    meetings: rows.map(([period, name, room], i) => ({
+      name,
+      period,
+      room,
+      teacher: "",
+      start: first + i * 50,
+      end: first + i * 50 + 50,
+    })),
+  };
+}
+
 export function demoGradebook(periodIndex = 0): Gradebook {
   const periods = [
     { index: 0, name: "Quarter 1", start: "2026-08-25", end: "2026-10-30" },

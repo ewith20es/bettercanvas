@@ -47,11 +47,27 @@ export type Gradebook = {
   periods: GradePeriod[];
   courses: GradeCourse[];
 };
+// One class meeting from today's StudentVUE bell schedule. `start`/`end` are
+// minutes since midnight in the school's local time, which is what the class
+// countdown compares against the viewer's clock.
+export type ClassMeeting = {
+  name: string;
+  period: number | null;
+  room: string;
+  teacher: string;
+  start: number;
+  end: number;
+};
+export type TodaySchedule = {
+  fetchedAt: string;
+  meetings: ClassMeeting[];
+};
 export type GradebookConnection = {
   connected: boolean;
   canConnect: boolean;
   expiresAt: string | null;
   snapshot: Gradebook | null;
+  schedule: TodaySchedule | null;
 };
 
 export function hasGradeScore(a: GradeAssignment) {
@@ -74,30 +90,41 @@ export function gradeTone(letter: string) {
   return "none";
 }
 
+export type WhatIfEntry = {
+  category: string;
+  earned: number;
+  possible: number;
+};
+
 // Estimates use the category totals/weights returned by Synergy, never Canvas.
 // Unknown weights or totals must not silently become zero.
+// Accepts one hypothetical assignment or a list of them. Several entries may
+// target the same category; their points are summed into that category's totals
+// before the weighted average is renormalized over populated categories.
 export function estimateGrade(
   categories: GradeCategory[],
-  addition?: {
-    category: string;
-    earned: number;
-    possible: number;
-  },
+  addition?: WhatIfEntry | WhatIfEntry[],
 ): number | null {
   if (
     !categories.length ||
     categories.some((c) => c.weight === null || c.weight < 0)
   )
     return null;
-  if (
-    addition &&
-    (!categories.some((c) => c.name === addition.category) ||
-      !Number.isFinite(addition.earned) ||
-      !Number.isFinite(addition.possible) ||
-      addition.earned < 0 ||
-      addition.possible <= 0)
-  )
-    return null;
+  const additions =
+    addition === undefined
+      ? []
+      : Array.isArray(addition)
+        ? addition
+        : [addition];
+  for (const a of additions)
+    if (
+      !categories.some((c) => c.name === a.category) ||
+      !Number.isFinite(a.earned) ||
+      !Number.isFinite(a.possible) ||
+      a.earned < 0 ||
+      a.possible <= 0
+    )
+      return null;
   let weighted = 0,
     weight = 0;
   for (const c of categories) {
@@ -107,12 +134,33 @@ export function estimateGrade(
       (c.earned === null && c.possible !== 0)
     )
       return null;
-    const added = addition?.category === c.name ? addition : undefined;
-    const possible = c.possible + (added?.possible ?? 0);
+    const mine = additions.filter((a) => a.category === c.name);
+    const addedEarned = mine.reduce((sum, a) => sum + a.earned, 0);
+    const addedPossible = mine.reduce((sum, a) => sum + a.possible, 0);
+    const possible = c.possible + addedPossible;
     if (possible <= 0 || !c.weight) continue;
-    weighted +=
-      (((c.earned ?? 0) + (added?.earned ?? 0)) / possible) * c.weight;
+    weighted += (((c.earned ?? 0) + addedEarned) / possible) * c.weight;
     weight += c.weight;
   }
   return weight > 0 ? (weighted / weight) * 100 : null;
+}
+
+// Minutes since midnight -> "9:15 AM", for schedule labels.
+export function clockLabel(minutes: number) {
+  const h = Math.floor(minutes / 60),
+    m = minutes % 60;
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+// The meeting covering `minutes` today, and when that class truly ends (back to
+// back blocks of the same class are treated as one, matching StudentVUE).
+export function activeMeeting(meetings: ClassMeeting[], minutes: number) {
+  const active = meetings.find((m) => minutes >= m.start && minutes <= m.end);
+  if (!active) return null;
+  const end = meetings
+    .filter((m) => m.name === active.name)
+    .reduce((latest, m) => (m.end > latest ? m.end : latest), active.end);
+  return { ...active, end };
 }

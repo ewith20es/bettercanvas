@@ -12,25 +12,36 @@ import {
   BookOpenCheck,
   Calculator,
   Check,
-  ChevronRight,
   ExternalLink,
+  FilePlus2,
+  LayoutGrid,
   LockKeyhole,
   LogOut,
   RefreshCw,
   Search,
   ShieldCheck,
+  Table,
+  Trash2,
 } from "lucide-react";
 import { api, ApiError } from "./data";
 import {
+  activeMeeting,
+  clockLabel,
   estimateGrade,
   gradeTone,
   hasGradeScore,
   type Gradebook as GradebookData,
   type GradebookConnection,
+  type GradeAssignment,
+  type GradeCategory,
   type GradeCourse,
   type GradeMark,
+  type TodaySchedule,
 } from "../../../packages/domain/src/gradebook";
-import { demoGradebook } from "../../../packages/domain/src/gradebook-demo";
+import {
+  demoGradebook,
+  demoSchedule,
+} from "../../../packages/domain/src/gradebook-demo";
 import "./gradebook.css";
 
 const studentVue = "https://md-mcps-psv.edupoint.com/PXP2_Login_Student.aspx";
@@ -49,6 +60,42 @@ const date = (s: string) =>
 const barStyle = (n: number | null): CSSProperties => ({
   width: `${Math.max(0, Math.min(100, n ?? 0))}%`,
 });
+// Matches StudentVUE's own countdown wording: hours collapse the seconds.
+const remainingLabel = (seconds: number) => {
+  const h = Math.floor(seconds / 3600),
+    m = Math.floor((seconds % 3600) / 60),
+    s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+};
+// Re-renders once a second so the class countdown stays live.
+function useClock(enabled: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!enabled) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [enabled]);
+  return now;
+}
+// The class in session right now, with seconds left, from today's bell schedule.
+function useClassCountdown(schedule: TodaySchedule | null) {
+  const now = useClock(!!schedule?.meetings.length);
+  if (!schedule?.meetings.length) return null;
+  const at = new Date(now);
+  const minutes = at.getHours() * 60 + at.getMinutes();
+  const active = activeMeeting(schedule.meetings, minutes);
+  if (!active) return null;
+  const secondsLeft = Math.max(
+    0,
+    active.end * 60 - (minutes * 60 + at.getSeconds()),
+  );
+  return { ...active, secondsLeft, label: remainingLabel(secondsLeft) };
+}
+// Under a minute turns red, under five minutes amber - GradeDurian's urgency cue.
+const urgency = (seconds: number) =>
+  seconds < 60 ? "urgent" : seconds < 300 ? "soon" : "";
 
 export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   const [connection, setConnection] = useState<GradebookConnection | null>(
@@ -62,6 +109,23 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   const [showConnect, setShowConnect] = useState(false),
     [query, setQuery] = useState("");
   const [sort, setSort] = useState("schedule");
+  const [view, setView] = useState<"card" | "table">(() => {
+    try {
+      return localStorage.getItem("bc:gradebookView") === "table"
+        ? "table"
+        : "card";
+    } catch {
+      return "card";
+    }
+  });
+  const chooseView = (next: "card" | "table") => {
+    setView(next);
+    try {
+      localStorage.setItem("bc:gradebookView", next);
+    } catch {
+      /* private mode: the choice just does not persist */
+    }
+  };
   const [params, setParams] = useSearchParams();
   const active = useRef(true);
   const connectHeading = useRef<HTMLHeadingElement>(null);
@@ -140,6 +204,13 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
     await run("gradebook/connect", credentials);
   };
   const data = sample ?? connection?.snapshot;
+  // The preview uses a stand-in schedule so the countdown is still visible.
+  const sampleSchedule = useRef(
+    demoSchedule(new Date().getHours() * 60 + new Date().getMinutes()),
+  );
+  const countdown = useClassCountdown(
+    sample ? sampleSchedule.current : (connection?.schedule ?? null),
+  );
   const selected = data?.courses.find((c) => c.id === params.get("course"));
   const refresh = (period?: number) => {
     if (sample) {
@@ -306,6 +377,15 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
               </div>
             </div>
             <div className="gb-toolbar-actions">
+              <button
+                className="icon-button"
+                aria-label="Refresh grades"
+                title="Refresh grades"
+                disabled={busy}
+                onClick={() => refresh()}
+              >
+                <RefreshCw size={17} className={busy ? "spin" : ""} />
+              </button>
               <select
                 aria-label="Grading period"
                 value={data.period.index}
@@ -317,19 +397,26 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
               >
                 {data.periods.map((p) => (
                   <option key={p.index} value={p.index}>
-                    {p.name}
+                    {p.start ? `${p.name} (${date(p.start)})` : p.name}
                   </option>
                 ))}
               </select>
-              <button
-                className="button"
-                aria-label="Refresh grades"
-                disabled={busy}
-                onClick={() => refresh()}
-              >
-                <RefreshCw size={15} className={busy ? "spin" : ""} />
-                <span>Refresh grades</span>
-              </button>
+              {!selected && (
+                <button
+                  className="icon-button"
+                  aria-label={
+                    view === "card" ? "Show as table" : "Show as cards"
+                  }
+                  title={view === "card" ? "Show as table" : "Show as cards"}
+                  onClick={() => chooseView(view === "card" ? "table" : "card")}
+                >
+                  {view === "card" ? (
+                    <Table size={17} />
+                  ) : (
+                    <LayoutGrid size={17} />
+                  )}
+                </button>
+              )}
               {!sample && (
                 <button
                   className="icon-button"
@@ -409,48 +496,105 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                   </select>
                 </div>
               </div>
-              <div className="gb-grid">
-                {courses.map((c) => {
-                  const m = c.marks[0],
-                    count = m?.assignments.filter((a) => a.missing).length ?? 0;
-                  return (
-                    <button
-                      key={c.id}
-                      className="gb-course"
-                      data-grade={gradeTone(m?.letter ?? "")}
-                      onClick={() => setParams({ course: c.id })}
-                    >
-                      <div className="gb-course-top">
-                        <span className="gb-period">
-                          {c.period === null ? "CLASS" : `PERIOD ${c.period}`}
+              {view === "card" ? (
+                <div className="gb-grid">
+                  {courses.map((c) => {
+                    const m = c.marks[0];
+                    const live =
+                      countdown !== null &&
+                      c.period !== null &&
+                      countdown.period === c.period;
+                    return (
+                      <button
+                        key={c.id}
+                        className="gb-course"
+                        data-grade={gradeTone(m?.letter ?? "")}
+                        data-live={live ? "true" : undefined}
+                        onClick={() => setParams({ course: c.id })}
+                      >
+                        <span className="gb-card-period">
+                          {c.period === null ? "—" : c.period}
                         </span>
-                        <ChevronRight size={18} />
-                      </div>
-                      <h3>{c.name}</h3>
-                      <p>{c.teacher || "Teacher not provided"}</p>
-                      <div className="gb-grade-line">
-                        <strong>{m?.letter || "—"}</strong>
-                        <span>{percent(m?.percent ?? null)}</span>
-                      </div>
-                      <div className="gb-track">
-                        <span style={barStyle(m?.percent ?? null)} />
-                      </div>
-                      <div className="gb-course-bottom">
-                        <span>{m?.assignments.length ?? 0} assignments</span>
-                        {count > 0 ? (
-                          <span className="gb-missing-count">
-                            {count} missing
-                          </span>
-                        ) : (
-                          <span>
-                            {c.room ? `Room ${c.room}` : "View details"}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                        <h3>{c.name}</h3>
+                        <p className="gb-card-teacher">
+                          {c.teacher || "Teacher not provided"}
+                          {live && (
+                            <span
+                              className={`gb-countdown ${urgency(countdown.secondsLeft)}`}
+                              title={`Ends at ${clockLabel(countdown.end)}`}
+                            >
+                              {countdown.label}
+                            </span>
+                          )}
+                        </p>
+                        <div className="gb-card-foot">
+                          <strong className="gb-card-grade">
+                            {m?.letter || "—"}
+                            {m?.percent !== null &&
+                              m?.percent !== undefined && (
+                                <span> ({percent(m.percent)})</span>
+                              )}
+                          </strong>
+                          <span className="gb-view-button">View</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="gb-table-wrap">
+                  <table className="gb-table gb-course-table">
+                    <thead>
+                      <tr>
+                        <th>Period</th>
+                        <th>Course Name</th>
+                        <th>Teacher</th>
+                        <th>Grade</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {courses.map((c) => {
+                        const m = c.marks[0];
+                        const live =
+                          countdown !== null &&
+                          c.period !== null &&
+                          countdown.period === c.period;
+                        return (
+                          <tr key={c.id} data-live={live ? "true" : undefined}>
+                            <td>{c.period === null ? "—" : c.period}</td>
+                            <td>
+                              <button
+                                className="gb-link-button"
+                                onClick={() => setParams({ course: c.id })}
+                              >
+                                {c.name}
+                              </button>
+                              {live && (
+                                <span
+                                  className={`gb-countdown ${urgency(countdown.secondsLeft)}`}
+                                >
+                                  {countdown.label}
+                                </span>
+                              )}
+                            </td>
+                            <td>{c.teacher || "—"}</td>
+                            <td
+                              className="gb-grade-cell"
+                              data-grade={gradeTone(m?.letter ?? "")}
+                            >
+                              <strong>{m?.letter || "N/A"}</strong>
+                              {m?.percent !== null &&
+                                m?.percent !== undefined && (
+                                  <span> ({percent(m.percent)})</span>
+                                )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               {!courses.length && (
                 <div className="gb-empty">
                   <BookOpenCheck size={32} />
@@ -528,11 +672,139 @@ function CourseDetails({ course }: { course: GradeCourse }) {
   );
 }
 
+type WhatIfRow = {
+  id: string;
+  name: string;
+  category: string;
+  earned: string;
+  possible: string;
+};
+const num = (s: string) => {
+  const n = Number(s.trim());
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
+// An assignment is already inside Synergy's reported category totals only once
+// it has a score and is not excused, so an edit to it is a delta, not an add.
+const counted = (a: GradeAssignment) => !a.excluded && a.earned !== null;
+const pointsOf = (n: number | null) =>
+  n === null ? "" : String(Number(n.toFixed(2)));
+
+// Click-to-edit number cell, matching GradeDurian's inline score fields.
+function ScoreField({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  label: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (editing) ref.current?.focus();
+  }, [editing]);
+  return editing ? (
+    <input
+      ref={ref}
+      className="gb-score-input"
+      type="number"
+      min={0}
+      step="any"
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={() => setEditing(false)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === "Escape") setEditing(false);
+      }}
+    />
+  ) : (
+    <button
+      type="button"
+      className="gb-score-value"
+      onClick={() => setEditing(true)}
+      aria-label={`${label}: ${value === "" ? "not graded" : value}. Edit`}
+    >
+      {value === "" ? "NG" : value}
+    </button>
+  );
+}
+
 function MarkDetails({ mark }: { mark: GradeMark }) {
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
     [sort, setSort] = useState("newest");
-  const [whatIf, setWhatIf] = useState(false);
+  const [rows, setRows] = useState<WhatIfRow[]>([]);
+  const [overrides, setOverrides] = useState<
+    Record<string, { earned: string; possible: string }>
+  >({});
+  const categories = mark.categories;
+  const defaultCategory = categories[0]?.name ?? "";
+  const seq = useRef(0);
+
+  const addRow = () =>
+    setRows((r) => [
+      {
+        id: `whatif-${(seq.current += 1)}`,
+        name: "New Assignment",
+        category: defaultCategory,
+        earned: "0",
+        possible: "0",
+      },
+      ...r,
+    ]);
+  const setRow = (id: string, patch: Partial<WhatIfRow>) =>
+    setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const removeRow = (id: string) =>
+    setRows((r) => r.filter((x) => x.id !== id));
+  const override = (a: GradeAssignment) =>
+    overrides[a.id] ?? {
+      earned: pointsOf(a.earned),
+      possible: pointsOf(a.possible),
+    };
+  const setOverride = (
+    a: GradeAssignment,
+    patch: Partial<{ earned: string; possible: string }>,
+  ) => setOverrides((o) => ({ ...o, [a.id]: { ...override(a), ...patch } }));
+  const clearOverride = (id: string) =>
+    setOverrides((o) => {
+      const next = { ...o };
+      delete next[id];
+      return next;
+    });
+  const reset = () => {
+    setRows([]);
+    setOverrides({});
+  };
+
+  // Project the reported category totals forward: hypothetical rows add points,
+  // edited real assignments contribute only the difference they make.
+  const adjusted: GradeCategory[] = categories.map((c) => {
+    let earned = c.earned ?? 0,
+      possible = c.possible ?? 0;
+    for (const r of rows)
+      if (r.category === c.name) {
+        earned += num(r.earned);
+        possible += num(r.possible);
+      }
+    for (const a of mark.assignments) {
+      const o = overrides[a.id];
+      if (!o || a.category !== c.name) continue;
+      earned += num(o.earned) - (counted(a) ? (a.earned ?? 0) : 0);
+      possible += num(o.possible) - (counted(a) ? (a.possible ?? 0) : 0);
+    }
+    return {
+      ...c,
+      earned: Math.max(0, earned),
+      possible: Math.max(0, possible),
+    };
+  });
+  const changed = rows.length > 0 || Object.keys(overrides).length > 0;
+  const estimate = estimateGrade(adjusted);
+  const baseline = estimateGrade(categories);
+  const shown = changed && estimate !== null ? estimate : mark.percent;
+
   const assignments = [...mark.assignments]
     .filter(
       (a) =>
@@ -547,84 +819,76 @@ function MarkDetails({ mark }: { mark: GradeMark }) {
         ? a.name.localeCompare(b.name)
         : (sort === "oldest" ? 1 : -1) * a.due.localeCompare(b.due),
     );
+
   return (
     <>
-      <div className="gb-breakdown">
-        <div className="gb-reported" data-grade={gradeTone(mark.letter)}>
-          <span className="eyebrow">REPORTED GRADE</span>
-          <div>
-            <strong>{mark.letter || "—"}</strong>
-            <span>{percent(mark.percent)}</span>
-          </div>
-          <p>{mark.name}</p>
-          <div className="gb-track">
-            <span style={barStyle(mark.percent)} />
-          </div>
-          <small>As reported by StudentVUE</small>
+      <div className="gb-grade-head" data-grade={gradeTone(mark.letter)}>
+        <div className="gb-grade-figure">
+          <strong>{mark.letter || "N/A"}</strong>
+          {mark.percent !== null && <span>({percent(mark.percent)})</span>}
         </div>
-        <section className="gb-categories">
-          <h3>Category breakdown</h3>
-          {mark.categories.length ? (
-            mark.categories.map((c, i) => {
-              const pct =
-                c.earned !== null && c.possible !== null && c.possible > 0
-                  ? (c.earned / c.possible) * 100
-                  : null;
-              return (
-                <div className="gb-category" key={i}>
-                  <div>
-                    <strong>{c.name}</strong>
-                    <span>
-                      {c.weight === null
-                        ? "Weight unavailable"
-                        : `${c.weight}% weight`}
-                    </span>
-                  </div>
-                  <div className="gb-track">
-                    <span style={barStyle(pct)} />
-                  </div>
-                  <div>
-                    <span>
-                      {points(c.earned)} / {points(c.possible)} points
-                    </span>
-                    <strong>{percent(pct)}</strong>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <p className="gb-muted">
-              StudentVUE has not provided category totals for this grade.
-            </p>
-          )}
-        </section>
+        {changed && estimate !== null && (
+          <span className="gb-estimate-chip">
+            <Calculator size={14} /> What-if estimate {percent(estimate)}
+          </span>
+        )}
       </div>
-      <div className="gb-whatif-heading">
-        <div>
-          <Calculator size={20} />
-          <div>
-            <h3>What if?</h3>
-            <p>See how one future assignment could affect your grade.</p>
+      <div className="gb-bar gb-bar-total" data-grade={gradeTone(mark.letter)}>
+        <span className="gb-bar-fill" style={barStyle(shown)} />
+        <span className="gb-bar-label">
+          Total{shown !== null ? ` (${percent(shown)})` : ""}
+        </span>
+      </div>
+      {categories.map((c, i) => {
+        const a = adjusted[i];
+        const pct =
+          a.possible !== null && a.possible > 0 && a.earned !== null
+            ? (a.earned / a.possible) * 100
+            : null;
+        return (
+          <div className="gb-bar" key={i}>
+            <span className="gb-bar-fill" style={barStyle(pct)} />
+            <span className="gb-bar-label">
+              {c.name} ({percent(pct)}) - {points(a.earned)}/
+              {points(a.possible)}
+              {c.weight !== null && (
+                <em className="gb-weight"> · {c.weight}% weight</em>
+              )}
+            </span>
           </div>
-        </div>
+        );
+      })}
+      {!categories.length && (
+        <p className="gb-muted">
+          StudentVUE has not provided category totals for this grade.
+        </p>
+      )}
+      {baseline === null && categories.length > 0 && (
+        <p className="gb-muted">
+          StudentVUE did not publish complete category weights, so what-if
+          estimates are unavailable for this class.
+        </p>
+      )}
+
+      <div className="gb-detail-actions">
         <button
           className="button"
-          aria-expanded={whatIf}
-          onClick={() => setWhatIf(!whatIf)}
+          onClick={addRow}
+          disabled={!categories.length}
         >
-          {whatIf ? "Close calculator" : "Try a score"}
-          <ArrowRight size={15} />
+          <FilePlus2 size={15} /> Add assignment
         </button>
+        {changed && (
+          <button className="text-button" onClick={reset}>
+            Reset what-if
+          </button>
+        )}
+        <p className="gb-simulation-label">
+          <Calculator size={14} /> Edit any score or add assignments to test a
+          grade. Nothing is sent to StudentVUE.
+        </p>
       </div>
-      {whatIf && <WhatIf mark={mark} />}
-      <div className="gb-section-heading">
-        <div>
-          <h3>
-            Assignments <span className="count">{mark.assignments.length}</span>
-          </h3>
-          <p>Scores and notes from your teacher’s gradebook.</p>
-        </div>
-      </div>
+
       <div className="gb-assignment-filters">
         <label className="gb-search">
           <Search size={16} />
@@ -655,138 +919,130 @@ function MarkDetails({ mark }: { mark: GradeMark }) {
           <option value="name">Assignment name</option>
         </select>
       </div>
+
       <div className="gb-table-wrap">
-        <table className="gb-table">
+        <table className="gb-table gb-assignment-table">
           <thead>
             <tr>
+              <th>Date</th>
               <th>Assignment</th>
-              <th>Due</th>
-              <th>Points</th>
-              <th>Teacher score</th>
+              <th>Score</th>
+              <th>Category</th>
+              <th />
             </tr>
           </thead>
           <tbody>
-            {assignments.map((a, i) => (
-              <tr key={`${a.id}:${i}`}>
+            {rows.map((r) => (
+              <tr key={r.id} className="gb-whatif-row">
+                <td>Today</td>
                 <td>
-                  <strong>{a.name}</strong>
-                  <small>{a.category}</small>
-                  {a.notes && <p className="gb-assignment-notes">{a.notes}</p>}
-                </td>
-                <td>{date(a.due)}</td>
-                <td className="gb-numeric">
-                  {points(a.earned)} <span>/ {points(a.possible)}</span>
+                  <input
+                    className="gb-name-input"
+                    aria-label="What-if assignment name"
+                    value={r.name}
+                    onChange={(e) => setRow(r.id, { name: e.target.value })}
+                  />
                 </td>
                 <td>
-                  {a.excluded ? (
-                    <span className="badge gray">Excluded</span>
-                  ) : a.missing ? (
-                    <span className="badge red">Missing</span>
-                  ) : (
-                    <span
-                      className={`badge ${hasGradeScore(a) ? "green" : "gray"}`}
-                    >
-                      {a.score || (a.earned === null ? "Not graded" : "Scored")}
-                    </span>
-                  )}
+                  <div className="gb-score">
+                    <ScoreField
+                      label="Points earned"
+                      value={r.earned}
+                      onChange={(v) => setRow(r.id, { earned: v })}
+                    />
+                    <span>/</span>
+                    <ScoreField
+                      label="Points possible"
+                      value={r.possible}
+                      onChange={(v) => setRow(r.id, { possible: v })}
+                    />
+                  </div>
+                </td>
+                <td>
+                  <select
+                    aria-label="What-if assignment category"
+                    value={r.category}
+                    onChange={(e) => setRow(r.id, { category: e.target.value })}
+                  >
+                    {categories.map((c, i) => (
+                      <option key={i} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td>
+                  <button
+                    className="icon-button"
+                    title="Remove what-if assignment"
+                    aria-label={`Remove what-if assignment ${r.name}`}
+                    onClick={() => removeRow(r.id)}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </td>
               </tr>
             ))}
+            {assignments.map((a, i) => {
+              const o = override(a);
+              const edited = !!overrides[a.id];
+              return (
+                <tr
+                  key={`${a.id}:${i}`}
+                  className={edited ? "gb-edited-row" : undefined}
+                  data-excluded={a.excluded ? "true" : undefined}
+                >
+                  <td>{date(a.due)}</td>
+                  <td>
+                    <strong>{a.name}</strong>
+                    {a.notes && (
+                      <p className="gb-assignment-notes">{a.notes}</p>
+                    )}
+                    {a.excluded ? (
+                      <span className="badge gray">Excluded</span>
+                    ) : a.missing ? (
+                      <span className="badge red">Missing</span>
+                    ) : null}
+                  </td>
+                  <td>
+                    <div className="gb-score">
+                      <ScoreField
+                        label={`${a.name} points earned`}
+                        value={o.earned}
+                        onChange={(v) => setOverride(a, { earned: v })}
+                      />
+                      <span>/</span>
+                      <ScoreField
+                        label={`${a.name} points possible`}
+                        value={o.possible}
+                        onChange={(v) => setOverride(a, { possible: v })}
+                      />
+                    </div>
+                  </td>
+                  <td>{a.category || "—"}</td>
+                  <td>
+                    {edited && (
+                      <button
+                        className="icon-button"
+                        title="Undo this what-if edit"
+                        aria-label={`Undo what-if edit to ${a.name}`}
+                        onClick={() => clearOverride(a.id)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
-        {!assignments.length && (
+        {!assignments.length && !rows.length && (
           <div className="gb-empty">
             <p>No assignments match this view.</p>
           </div>
         )}
       </div>
     </>
-  );
-}
-
-function WhatIf({ mark }: { mark: GradeMark }) {
-  const [category, setCategory] = useState(mark.categories[0]?.name ?? "");
-  const [earned, setEarned] = useState(""),
-    [possible, setPossible] = useState("20");
-  const estimate =
-    earned.trim() && possible.trim()
-      ? estimateGrade(mark.categories, {
-          category,
-          earned: Number(earned),
-          possible: Number(possible),
-        })
-      : null;
-  const baseline = estimateGrade(mark.categories);
-  const mismatch =
-    baseline !== null &&
-    mark.percent !== null &&
-    Math.abs(baseline - mark.percent) > 0.15;
-  return (
-    <section className="gb-calculator">
-      <p className="gb-simulation-label">
-        <Calculator size={15} /> SIMULATION · ONE NEW ASSIGNMENT
-      </p>
-      <div className="gb-calculator-fields">
-        <label className="field-label">
-          Category
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            {mark.categories.map((c, i) => (
-              <option key={i} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field-label">
-          Points earned
-          <input
-            type="number"
-            min="0"
-            step="any"
-            placeholder="18"
-            value={earned}
-            onChange={(e) => setEarned(e.target.value)}
-          />
-        </label>
-        <label className="field-label">
-          Points possible
-          <input
-            type="number"
-            min="0.01"
-            step="any"
-            value={possible}
-            onChange={(e) => setPossible(e.target.value)}
-          />
-        </label>
-        <div className="gb-estimate" aria-live="polite">
-          <span>Estimated grade</span>
-          <strong>{percent(estimate)}</strong>
-        </div>
-      </div>
-      <p>
-        {baseline === null
-          ? "Synergy has not provided enough category totals and weights for an estimate."
-          : mismatch
-            ? "These category totals do not exactly match the reported grade. Teacher overrides or other grading rules may affect the result."
-            : "Uses StudentVUE’s category weights and totals. Rounding and teacher adjustments may differ."}
-      </p>
-      <div className="gb-calculator-footer">
-        <span>
-          <Check size={14} /> Your reported grade stays unchanged.
-        </span>
-        <button
-          className="text-button"
-          onClick={() => {
-            setEarned("");
-            setPossible("20");
-          }}
-        >
-          Reset
-        </button>
-      </div>
-    </section>
   );
 }

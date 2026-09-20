@@ -1,9 +1,11 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import type {
+  ClassMeeting,
   Gradebook,
   GradeCourse,
   GradeMark,
   GradePeriod,
+  TodaySchedule,
 } from "../../../packages/domain/src/gradebook";
 
 export const STUDENTVUE_ORIGIN = "https://md-mcps-psv.edupoint.com";
@@ -14,7 +16,8 @@ export const STUDENTVUE_ORIGIN = "https://md-mcps-psv.edupoint.com";
 // proxy GradeDurian uses (https://github.com/btdpass/GradeDurian), which reaches
 // Synergy on our behalf and returns { status, response }.
 const district = `${STUDENTVUE_ORIGIN}/Service/PXPCommunication.asmx`;
-const PROXY_ENDPOINT = "https://cloudproxy.gradedurian.workers.dev/fulfillAxios";
+const PROXY_ENDPOINT =
+  "https://cloudproxy.gradedurian.workers.dev/fulfillAxios";
 const maxBytes = 8 * 1024 * 1024;
 export class SynergyError extends Error {
   constructor(
@@ -252,8 +255,68 @@ export function parseGradebook(
   };
 }
 
+// "9:15 AM" / "13:05" -> minutes since midnight, or null when unparseable.
+function minutes(value: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i.exec(value.trim());
+  if (!m) return null;
+  let hour = Number(m[1]);
+  const minute = Number(m[2]),
+    meridiem = m[3]?.toUpperCase();
+  if (minute > 59) return null;
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    if (meridiem === "PM" && hour !== 12) hour += 12;
+    if (meridiem === "AM" && hour === 12) hour = 0;
+  } else if (hour > 23) return null;
+  return hour * 60 + minute;
+}
+
+// Today's bell schedule from StudentClassList. A missing or empty schedule (a
+// weekend, a holiday, or a district that does not publish one) is not an error:
+// it simply yields no meetings, which hides the countdown.
+export function parseTodaySchedule(xml: string): TodaySchedule {
+  const envelope = parseXml(xml);
+  const body = node(node(envelope.Envelope).Body);
+  const result =
+    node(body.ProcessWebServiceRequestMultiWebResponse)
+      .ProcessWebServiceRequestMultiWebResult ??
+    node(body.ProcessWebServiceRequestResponse).ProcessWebServiceRequestResult;
+  if (typeof result !== "string")
+    throw new SynergyError(
+      "StudentVUE did not return your schedule. Please try again later.",
+    );
+  const payload = parseXml(result);
+  if (payload.RT_ERROR)
+    throw new SynergyError(
+      "StudentVUE could not open your schedule. Please try again later.",
+    );
+  const today = node(
+    node(payload.StudentClassSchedule).TodayScheduleInfoData,
+  ).SchoolInfos;
+  const meetings: ClassMeeting[] = list(node(today).SchoolInfo)
+    .flatMap((school) => list(node(school.Classes).ClassInfo))
+    .map((c) => {
+      const start = minutes(attr(c, "StartTime")),
+        end = minutes(attr(c, "EndTime"));
+      return start === null || end === null || end < start
+        ? null
+        : {
+            name: attr(c, "ClassName") || "Class",
+            period: number(attr(c, "Period")),
+            room: attr(c, "RoomName"),
+            teacher: attr(c, "TeacherName"),
+            start,
+            end,
+          };
+    })
+    .filter((m): m is ClassMeeting => m !== null)
+    .sort((a, b) => a.start - b.start);
+  return { fetchedAt: new Date().toISOString(), meetings };
+}
+
 export interface GradebookClient {
   gradebook(period?: number): Promise<Gradebook>;
+  schedule(): Promise<TodaySchedule>;
   dispose(): void;
 }
 export class SynergyClient implements GradebookClient {
@@ -267,21 +330,38 @@ export class SynergyClient implements GradebookClient {
     this.password = "";
   }
   async gradebook(period?: number): Promise<Gradebook> {
-    if (!this.username || !this.password)
-      throw new SynergyError(
-        "Reconnect StudentVUE to refresh your grades.",
-        409,
-      );
     if (
       period !== undefined &&
       (!Number.isInteger(period) || period < 0 || period > 50)
     )
       throw new SynergyError("Choose a valid grading period.", 400);
     const params = `<Parms><childIntId>0</childIntId>${period === undefined ? "" : `<ReportPeriod>${period}</ReportPeriod>`}</Parms>`;
-    const xml = `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ProcessWebServiceRequestMultiWeb xmlns="http://edupoint.com/webservices/"><userID>${escapeXml(this.username)}</userID><password>${escapeXml(this.password)}</password><skipLoginLog>0</skipLoginLog><parent>0</parent><webServiceHandleName>PXPWebServices</webServiceHandleName><methodName>Gradebook</methodName><paramStr>${escapeXml(params)}</paramStr></ProcessWebServiceRequestMultiWeb></soap:Body></soap:Envelope>`;
+    return parseGradebook(await this.relay("Gradebook", params), period);
+  }
+  async schedule(): Promise<TodaySchedule> {
+    return parseTodaySchedule(
+      await this.relay(
+        "StudentClassList",
+        "<Parms><childIntId>0</childIntId></Parms>",
+      ),
+    );
+  }
+  // Shared transport: wrap `params` in a SOAP envelope and relay it to Synergy
+  // through the proxy, returning the raw SOAP response for a parser.
+  private async relay(methodName: string, params: string): Promise<string> {
+    if (!this.username || !this.password)
+      throw new SynergyError(
+        "Reconnect StudentVUE to refresh your grades.",
+        409,
+      );
+    const xml = `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ProcessWebServiceRequestMultiWeb xmlns="http://edupoint.com/webservices/"><userID>${escapeXml(this.username)}</userID><password>${escapeXml(this.password)}</password><skipLoginLog>0</skipLoginLog><parent>0</parent><webServiceHandleName>PXPWebServices</webServiceHandleName><methodName>${escapeXml(methodName)}</methodName><paramStr>${escapeXml(params)}</paramStr></ProcessWebServiceRequestMultiWeb></soap:Body></soap:Envelope>`;
     // The proxy relays this envelope to `district` and returns
     // { status, response }. `encrypted: false` forwards the password as sent.
-    const requestBody = JSON.stringify({ url: district, xml, encrypted: false });
+    const requestBody = JSON.stringify({
+      url: district,
+      xml,
+      encrypted: false,
+    });
     try {
       const response = await this.request(PROXY_ENDPOINT, {
         method: "POST",
@@ -332,7 +412,7 @@ export class SynergyClient implements GradebookClient {
         throw new SynergyError(
           "StudentVUE could not open your gradebook. Check the StudentVUE website for an account notice or try again later.",
         );
-      return parseGradebook(relayed.response, period);
+      return relayed.response;
     } catch (e) {
       if (e instanceof SynergyError) throw e;
       throw new SynergyError(
