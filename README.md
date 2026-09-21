@@ -38,7 +38,11 @@ To connect:
 
 All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. The backend builds the StudentVUE SOAP request for `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` and relays it through the GradeDurian StudentVUE proxy, which forwards it to Synergy; your StudentVUE credentials pass through that proxy in transit. Canvas remains the source for the separate assignment/submission views.
 
-StudentVUE requires credentials with each request. They are held only in server memory for **one hour**, scoped to your signed-in app session. Disconnecting StudentVUE, signing out, or restarting the server clears them and that session's grade cache; a cleanup timer removes expired connections within 30 seconds. Nothing is saved to a database, browser storage, service-worker cache, logs, or source code. A page reload within the connection window can reuse the session. A Render restart requires reconnecting. Browser/password-manager autofill is controlled by your browser.
+StudentVUE requires credentials with each request. The live connection is held in server memory for **one hour**, scoped to your signed-in app session; a cleanup timer removes expired connections within 30 seconds.
+
+**Keep me signed in** (on by default in the connect form) saves your StudentVUE sign-in so you do not retype it when you reopen the app, after the hour ends, or after Render restarts. The student ID and password are encrypted with AES-256-GCM using a server-only key and stored in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie that is sent only to `/api/gradebook` and expires after 30 days. Page scripts cannot read it, and it is useless without a signed-in Better Canvas session. The app reconnects automatically on launch and renews the connection shortly before each hour ends. Disconnecting StudentVUE, signing out of Better Canvas, or StudentVUE rejecting the saved password deletes it. Untick the box to keep the old memory-only behavior.
+
+The encryption key comes from `GRADEBOOK_SECRET` (32+ random characters; Render generates one from `render.yaml`) or, if that is not set, from `APP_PASSWORD`. Changing either signs every device out of StudentVUE. Nothing is saved to a database, browser storage, service-worker cache, logs, or source code.
 
 The page uses GradeDurian-inspired grade cards, progress bars, category breakdowns, and a what-if calculator. Reported grades are displayed unchanged. The calculator adds one hypothetical assignment to Synergy's category totals, renormalizes populated category weights, and labels the result as an **estimate**. It never changes StudentVUE and does not claim to calculate an official GPA or final grade. Unknown weights or totals disable the estimate; unknown scores are not treated as zero. Schools using standards-based gradebooks receive an unsupported-format message.
 
@@ -72,6 +76,7 @@ Set these in Render's Environment panel:
 | `CANVAS_BASE_URL`     | `https://mcpsmd.instructure.com`                                                                                                |
 | `CANVAS_ACCESS_TOKEN` | Your own Canvas token; enter directly in Render                                                                                 |
 | `APP_PASSWORD`        | A separate strong app passphrase, at least 8 characters                                                                         |
+| `GRADEBOOK_SECRET`    | Optional. 32+ random characters that encrypt remembered StudentVUE sign-ins. Falls back to `APP_PASSWORD`.                      |
 | `APP_ORIGIN`          | Optional for the default Render address; required for a custom domain. Use the exact HTTPS app origin without a trailing slash. |
 
 The backend automatically uses `RENDER_EXTERNAL_URL` for the standard Render address and listens on Render's assigned `PORT`. It serves the React build and `/api` from the same origin. Do not prefix secrets with `VITE_`.

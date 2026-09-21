@@ -10,6 +10,7 @@ import { demoSnapshot } from "../../../packages/domain/src/demo";
 import type { Snapshot } from "../../../packages/domain/src";
 import { CanvasClient } from "./canvas";
 import { registerGradebook, type SynergyFactory } from "./gradebook-routes";
+import { rememberKey } from "./remember";
 import { SynergyError } from "./synergy";
 
 export type Config = {
@@ -17,6 +18,8 @@ export type Config = {
   canvasOrigin: string;
   token?: string;
   password?: string;
+  /** Optional dedicated key for remembered StudentVUE sign-ins (32+ chars). */
+  gradebookSecret?: string;
   production: boolean;
 };
 export async function buildApp(
@@ -109,6 +112,8 @@ export async function buildApp(
     enabled: (config.password?.length ?? 0) >= 8,
     sessions,
     factory: synergyFactory,
+    rememberKey: rememberKey(config.gradebookSecret, config.password),
+    secure: config.production,
   });
   app.get("/api/health", async () => ({ ok: true }));
   app.get("/api/bootstrap", async (req) => ({
@@ -160,6 +165,8 @@ export async function buildApp(
   );
   app.post("/api/logout", async (req, reply) => {
     gradebook.forget(req.cookies.bc_session ?? "");
+    // Signing out of Better Canvas also forgets the saved StudentVUE sign-in.
+    gradebook.forgetLogin(reply);
     sessions.delete(req.cookies.bc_session ?? "");
     reply.clearCookie("bc_session", { path: "/" });
     return { ok: true };

@@ -14,6 +14,7 @@ const app = await buildApp({
   canvasOrigin,
   token: process.env.CANVAS_ACCESS_TOKEN,
   password: process.env.APP_PASSWORD,
+  gradebookSecret: process.env.GRADEBOOK_SECRET,
   origin:
     process.env.APP_ORIGIN ||
     process.env.RENDER_EXTERNAL_URL ||

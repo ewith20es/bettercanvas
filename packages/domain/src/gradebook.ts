@@ -65,6 +65,10 @@ export type TodaySchedule = {
 export type GradebookConnection = {
   connected: boolean;
   canConnect: boolean;
+  /** The server can keep this device signed in to StudentVUE. */
+  canRemember: boolean;
+  /** This device has a saved StudentVUE sign-in it can reconnect with. */
+  remembered: boolean;
   expiresAt: string | null;
   snapshot: Gradebook | null;
   schedule: TodaySchedule | null;

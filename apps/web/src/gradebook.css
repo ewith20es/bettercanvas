@@ -1,5 +1,6 @@
-/* GradeDurian's Grade Melon preset and Manrope typography, scoped to Gradebook. */
-.gradebook-shell {
+/* GradeDurian's Grade Melon preset and Manrope typography, scoped to the
+   Gradebook content area. The sidebar keeps the app's standard look. */
+.gradebook-shell main {
   --bg: #f9fafb;
   --paper: #ffffff;
   --text: #111827;
@@ -23,7 +24,7 @@
   font-family: "Manrope Variable", Manrope, sans-serif;
   min-height: 100vh;
 }
-[data-theme="dark"] .gradebook-shell {
+[data-theme="dark"] .gradebook-shell main {
   --bg: #111827;
   --paper: #1f2937;
   --text: #ffffff;
@@ -38,17 +39,15 @@
   --table-head: #374151;
   --track: #374151;
 }
-.gradebook-shell :is(button, input, select) {
+.gradebook-shell main :is(button, input, select) {
   font-family: inherit;
 }
-.gradebook-shell :is(button, a, input, select, summary):focus-visible {
+.gradebook-shell main :is(button, a, input, select, summary):focus-visible {
   outline: 3px solid var(--primary-focus);
   outline-offset: 3px;
 }
 .gradebook-shell .topbar {
   height: 64px;
-  position: absolute;
-  inset: 0 0 auto;
   padding: 0 24px;
   background: var(--paper);
   border-bottom: 1px solid var(--line);
@@ -88,65 +87,6 @@
   background: var(--hover);
   color: var(--text);
   border: 1px solid var(--line);
-}
-.gradebook-shell .sidebar {
-  top: 104px;
-  left: 40px;
-  bottom: auto;
-  width: 256px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper);
-  box-shadow: var(--card-shadow);
-}
-.gradebook-shell .sidebar :is(.brand, .workspace-label, .sidebar-note) {
-  display: none;
-}
-.gradebook-shell .sidebar nav {
-  gap: 4px;
-}
-.gradebook-shell .sidebar nav a {
-  color: var(--text);
-  font-size: 16px;
-  font-weight: 400;
-  padding: 12px;
-  gap: 12px;
-}
-.gradebook-shell .sidebar nav a svg {
-  color: var(--muted);
-  width: 24px;
-  height: 24px;
-  stroke-width: 1.5;
-}
-.gradebook-shell .sidebar nav a.active {
-  background: var(--primary-soft);
-  color: var(--text);
-}
-.gradebook-shell .sidebar nav a.active svg {
-  color: var(--primary-text);
-}
-.gradebook-shell .sidebar nav a:hover {
-  background: var(--hover);
-}
-.gradebook-shell .sidebar nav a:last-child {
-  margin-top: 12px;
-  border-top: 1px solid var(--line);
-  border-radius: 0;
-  padding-top: 24px;
-}
-.gradebook-shell .sidebar-footer {
-  padding: 16px 12px 4px;
-  margin-top: 12px;
-  font-size: 12px;
-  gap: 10px;
-}
-.gradebook-shell .sidebar-footer strong {
-  font-weight: 500;
-}
-.gradebook-shell main {
-  margin-left: 296px;
-  padding-top: 64px;
 }
 .gradebook-shell .page {
   max-width: none;
@@ -975,14 +915,6 @@
   }
 }
 @media (max-width: 1169px) and (min-width: 769px) {
-  .gradebook-shell .sidebar {
-    width: 220px;
-    left: 24px;
-    top: 88px;
-  }
-  .gradebook-shell main {
-    margin-left: 244px;
-  }
   .gradebook-shell .page {
     padding: 24px;
   }
@@ -1001,57 +933,9 @@
   .gb-app-actions {
     gap: 10px;
   }
-  .gradebook-shell .sidebar {
-    top: auto;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    padding: 4px 8px max(8px, env(safe-area-inset-bottom));
-    border-radius: 0;
-    box-shadow: 0 -1px 3px #00000010;
-  }
-  .gradebook-shell .sidebar nav {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0;
-    width: 100%;
-  }
-  .gradebook-shell .sidebar nav a {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    padding: 8px 2px;
-    font-size: 10px;
-    line-height: 14px;
-    border-radius: 6px;
-  }
-  .gradebook-shell .sidebar nav a svg {
-    width: 20px;
-    height: 20px;
-  }
-  .gradebook-shell .sidebar nav a:last-child {
-    margin: 0;
-    padding: 8px 2px;
-    border: 0;
-    border-radius: 6px;
-  }
-  .gradebook-shell .sidebar-footer {
-    display: none;
-  }
-  .gradebook-shell .nav-label-full {
-    display: none;
-  }
-  .gradebook-shell .nav-label-short {
-    display: inline;
-  }
-  .gradebook-shell main {
-    margin-left: 0;
-    padding-top: 60px;
-    padding-bottom: 80px;
-  }
   .gradebook-shell .page {
-    padding: 20px;
+    /* Leave room for the bottom navigation bar on phones. */
+    padding: 20px 20px 96px;
   }
   .gb-course {
     padding: 16px;
@@ -1134,4 +1018,7 @@
   .gb-course:hover {
     transform: none;
   }
+}
+.gb-connect-form .gb-remember input {
+  border-radius: 4px;
 }

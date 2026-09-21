@@ -106,6 +106,9 @@ function useClassCountdown(schedule: TodaySchedule | null) {
 const urgency = (seconds: number) =>
   seconds < 60 ? "urgent" : seconds < 300 ? "soon" : "";
 
+// Renew a remembered connection this long before the server's hour runs out.
+const renewEarly = 2 * 60 * 1000;
+
 export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   const [connection, setConnection] = useState<GradebookConnection | null>(
     null,
@@ -114,7 +117,8 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   const [busy, setBusy] = useState(true),
     [error, setError] = useState("");
   const [username, setUsername] = useState(""),
-    [password, setPassword] = useState("");
+    [password, setPassword] = useState(""),
+    [remember, setRemember] = useState(true);
   const [showConnect, setShowConnect] = useState(false),
     [query, setQuery] = useState("");
   const [sort, setSort] = useState("schedule");
@@ -141,12 +145,40 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   useEffect(() => {
     if (showConnect) connectHeading.current?.focus();
   }, [showConnect]);
+  // Reconnects with the sign-in this device saved ("Keep me signed in").
+  const resuming = useRef(false);
+  const resume = async () => {
+    if (resuming.current) return;
+    resuming.current = true;
+    setBusy(true);
+    try {
+      const c = await api<GradebookConnection>("gradebook/resume", "POST");
+      if (!active.current) return;
+      setConnection(c);
+      setSample(null);
+      setShowConnect(false);
+      setError("");
+    } catch (e) {
+      if (!active.current) return;
+      setError(e instanceof Error ? e.message : "Could not load your grades.");
+      try {
+        const c = await api<GradebookConnection>("gradebook");
+        if (active.current) setConnection(c);
+      } catch {
+        /* original error stays visible */
+      }
+    } finally {
+      resuming.current = false;
+      if (active.current) setBusy(false);
+    }
+  };
   useEffect(() => {
     active.current = true;
     void api<GradebookConnection>("gradebook")
       .then((c) => {
         if (!active.current) return;
         setConnection(c);
+        if (!c.connected && c.remembered) return resume();
         if (!c.connected && demoWorkspace) setSample(demoGradebook());
       })
       .catch((e) => {
@@ -161,8 +193,14 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   }, [demoWorkspace]);
   useEffect(() => {
     if (!connection?.expiresAt) return;
+    const remembered = connection.remembered;
     const timer = setTimeout(
       () => {
+        // A saved sign-in renews the hour-long connection shortly before it ends.
+        if (remembered) {
+          void resume();
+          return;
+        }
         setConnection((c) =>
           c ? { ...c, connected: false, snapshot: null, expiresAt: null } : c,
         );
@@ -170,10 +208,15 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
           "Your StudentVUE connection expired. Connect again to load your grades.",
         );
       },
-      Math.max(0, Date.parse(connection.expiresAt) - Date.now()),
+      Math.max(
+        0,
+        Date.parse(connection.expiresAt) -
+          Date.now() -
+          (remembered ? renewEarly : 0),
+      ),
     );
     return () => clearTimeout(timer);
-  }, [connection?.expiresAt]);
+  }, [connection?.expiresAt, connection?.remembered]);
 
   const run = async (path: string, body?: unknown) => {
     if (busy) return;
@@ -198,6 +241,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
         try {
           const c = await api<GradebookConnection>("gradebook");
           if (active.current) setConnection(c);
+          if (active.current && !c.connected && c.remembered) await resume();
         } catch {
           /* original error stays visible */
         }
@@ -208,7 +252,11 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   };
   const connect = async (event: FormEvent) => {
     event.preventDefault();
-    const credentials = { username, password };
+    const credentials = {
+      username,
+      password,
+      ...(connection?.canRemember ? { remember } : {}),
+    };
     setPassword("");
     await run("gradebook/connect", credentials);
   };
@@ -344,7 +392,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
           <button
             className="icon-button"
             disabled={busy}
-            title="Disconnect StudentVUE"
+            title="Disconnect StudentVUE and forget this device's sign-in"
             aria-label="Disconnect StudentVUE"
             onClick={() => void run("gradebook/disconnect")}
           >
@@ -416,6 +464,17 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                     onChange={(e) => setPassword(e.target.value)}
                   />
                 </label>
+                {connection.canRemember && (
+                  <label className="check-label gb-remember">
+                    <input
+                      type="checkbox"
+                      name="remember"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                    />{" "}
+                    Keep me signed in on this device
+                  </label>
+                )}
                 <button
                   className="button primary"
                   type="submit"
@@ -423,10 +482,20 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                 >
                   <LockKeyhole size={16} /> Connect securely
                 </button>
+                {connection.remembered && (
+                  <button
+                    className="text-button"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void resume()}
+                  >
+                    <RefreshCw size={14} /> Try my saved sign-in again
+                  </button>
+                )}
                 <p className="gb-privacy">
-                  Your credentials stay in server memory for up to one hour,
-                  then are cleared. Disconnecting or signing out clears them
-                  sooner. Grades are not saved for offline use.
+                  {connection.canRemember && remember
+                    ? "Your sign-in is encrypted and saved in a secure cookie on this device for 30 days, so the gradebook reconnects when you reopen the app. Disconnecting or signing out forgets it. Grades are not saved for offline use."
+                    : "Your credentials stay in server memory for up to one hour, then are cleared. Disconnecting or signing out clears them sooner. Grades are not saved for offline use."}
                 </p>
               </form>
             ) : (
