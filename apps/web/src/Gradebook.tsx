@@ -4,6 +4,7 @@ import {
   useState,
   type CSSProperties,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -20,6 +21,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   Table,
   Trash2,
 } from "lucide-react";
@@ -43,10 +45,24 @@ import {
   demoSchedule,
 } from "../../../packages/domain/src/gradebook-demo";
 import "./gradebook.css";
+import "@fontsource-variable/manrope";
 
 const studentVue = "https://md-mcps-psv.edupoint.com/PXP2_Login_Student.aspx";
 const percent = (n: number | null) =>
   n === null ? "—" : `${Number(n.toFixed(2))}%`;
+// Visual color bands only; reported letter grades and scores stay unchanged.
+const scoreTone = (value: number | null) =>
+  value === null
+    ? "none"
+    : value >= 89.5
+      ? "a"
+      : value >= 79.5
+        ? "b"
+        : value >= 69.5
+          ? "c"
+          : value >= 59.5
+            ? "d"
+            : "f";
 const points = (n: number | null) =>
   n === null ? "—" : Number(n.toFixed(2)).toString();
 const date = (s: string) =>
@@ -248,6 +264,99 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
       0,
     ) ?? 0;
 
+  const controls = data && (
+    <div className="gb-toolbar">
+      <div className="gb-toolbar-actions">
+        <button
+          className="icon-button"
+          aria-label="Refresh grades"
+          title="Refresh grades"
+          disabled={busy}
+          onClick={() => refresh()}
+        >
+          <RefreshCw size={17} className={busy ? "spin" : ""} />
+        </button>
+        <select
+          aria-label="Grading period"
+          value={data.period.index}
+          disabled={busy}
+          onChange={(e) => {
+            setParams({});
+            refresh(Number(e.target.value));
+          }}
+        >
+          {data.periods.map((p) => (
+            <option key={p.index} value={p.index}>
+              {p.start ? `${p.name} (${date(p.start)})` : p.name}
+            </option>
+          ))}
+        </select>
+        {!selected && (
+          <button
+            className="icon-button"
+            aria-label={view === "card" ? "Show as table" : "Show as cards"}
+            title={view === "card" ? "Show as table" : "Show as cards"}
+            onClick={() => chooseView(view === "card" ? "table" : "card")}
+          >
+            {view === "card" ? <Table size={17} /> : <LayoutGrid size={17} />}
+          </button>
+        )}
+        {!selected && (
+          <details
+            className="gb-filter-menu"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector("summary")?.focus();
+              }
+            }}
+          >
+            <summary
+              aria-label="Filter and sort classes"
+              title="Filter and sort classes"
+            >
+              <SlidersHorizontal size={18} />
+            </summary>
+            <div className="gb-filter-popover">
+              <label className="field-label">
+                Find a class
+                <input
+                  aria-label="Search gradebook courses"
+                  value={query}
+                  placeholder="Course or teacher"
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </label>
+              <label className="field-label">
+                Sort classes
+                <select
+                  aria-label="Sort gradebook courses"
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                >
+                  <option value="schedule">Schedule order</option>
+                  <option value="grade">Lowest grade first</option>
+                  <option value="name">Class name</option>
+                </select>
+              </label>
+            </div>
+          </details>
+        )}
+        {!sample && (
+          <button
+            className="icon-button"
+            disabled={busy}
+            title="Disconnect StudentVUE"
+            aria-label="Disconnect StudentVUE"
+            onClick={() => void run("gradebook/disconnect")}
+          >
+            <LogOut size={18} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="gb-page">
       {error && (
@@ -362,74 +471,6 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
               </button>
             </div>
           )}
-          <div className="gb-toolbar">
-            <div className="gb-provider">
-              <ShieldCheck size={19} />
-              <div>
-                <strong>
-                  {sample ? "StudentVUE preview" : "Connected to StudentVUE"}
-                </strong>
-                <small>
-                  {sample
-                    ? "Try the gradebook"
-                    : `Updated ${new Date(data.fetchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
-                </small>
-              </div>
-            </div>
-            <div className="gb-toolbar-actions">
-              <button
-                className="icon-button"
-                aria-label="Refresh grades"
-                title="Refresh grades"
-                disabled={busy}
-                onClick={() => refresh()}
-              >
-                <RefreshCw size={17} className={busy ? "spin" : ""} />
-              </button>
-              <select
-                aria-label="Grading period"
-                value={data.period.index}
-                disabled={busy}
-                onChange={(e) => {
-                  setParams({});
-                  refresh(Number(e.target.value));
-                }}
-              >
-                {data.periods.map((p) => (
-                  <option key={p.index} value={p.index}>
-                    {p.start ? `${p.name} (${date(p.start)})` : p.name}
-                  </option>
-                ))}
-              </select>
-              {!selected && (
-                <button
-                  className="icon-button"
-                  aria-label={
-                    view === "card" ? "Show as table" : "Show as cards"
-                  }
-                  title={view === "card" ? "Show as table" : "Show as cards"}
-                  onClick={() => chooseView(view === "card" ? "table" : "card")}
-                >
-                  {view === "card" ? (
-                    <Table size={17} />
-                  ) : (
-                    <LayoutGrid size={17} />
-                  )}
-                </button>
-              )}
-              {!sample && (
-                <button
-                  className="icon-button"
-                  disabled={busy}
-                  title="Disconnect StudentVUE"
-                  aria-label="Disconnect StudentVUE"
-                  onClick={() => void run("gradebook/disconnect")}
-                >
-                  <LogOut size={18} />
-                </button>
-              )}
-            </div>
-          </div>
           {selected ? (
             <>
               <button
@@ -441,61 +482,12 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
               <CourseDetails
                 key={`${data.period.index}:${selected.id}`}
                 course={selected}
+                controls={controls}
               />
             </>
           ) : (
             <>
-              <div className="gb-summary">
-                <div>
-                  <span>YOUR CLASSES</span>
-                  <strong>
-                    {data.courses.length}
-                    <small>this grading period</small>
-                  </strong>
-                </div>
-                <div>
-                  <span>REPORTED GRADES</span>
-                  <strong>
-                    {marked.length}
-                    <small>from {sample ? "sample data" : "StudentVUE"}</small>
-                  </strong>
-                </div>
-                <div>
-                  <span>MARKED MISSING</span>
-                  <strong className={missing ? "red-text" : ""}>
-                    {missing}
-                    <small>
-                      {missing ? "check your class details" : "nothing flagged"}
-                    </small>
-                  </strong>
-                </div>
-              </div>
-              <div className="gb-section-heading">
-                <div>
-                  <h2>Your gradebook</h2>
-                  <p>Choose a class to see what’s behind the grade.</p>
-                </div>
-                <div className="gb-course-filters">
-                  <label className="gb-search">
-                    <Search size={16} />
-                    <input
-                      aria-label="Search gradebook courses"
-                      value={query}
-                      placeholder="Find a class"
-                      onChange={(e) => setQuery(e.target.value)}
-                    />
-                  </label>
-                  <select
-                    aria-label="Sort gradebook courses"
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value)}
-                  >
-                    <option value="schedule">Schedule order</option>
-                    <option value="grade">Lowest grade first</option>
-                    <option value="name">Class name</option>
-                  </select>
-                </div>
-              </div>
+              {controls}
               {view === "card" ? (
                 <div className="gb-grid">
                   {courses.map((c) => {
@@ -515,18 +507,20 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                         <span className="gb-card-period">
                           {c.period === null ? "—" : c.period}
                         </span>
-                        <h3>{c.name}</h3>
-                        <p className="gb-card-teacher">
-                          {c.teacher || "Teacher not provided"}
-                          {live && (
-                            <span
-                              className={`gb-countdown ${urgency(countdown.secondsLeft)}`}
-                              title={`Ends at ${clockLabel(countdown.end)}`}
-                            >
-                              {countdown.label}
-                            </span>
-                          )}
-                        </p>
+                        <div className="gb-card-info">
+                          <h3>{c.name}</h3>
+                          <p className="gb-card-teacher">
+                            {c.teacher || "Teacher not provided"}
+                            {live && (
+                              <span
+                                className={`gb-countdown ${urgency(countdown.secondsLeft)}`}
+                                title={`Ends at ${clockLabel(countdown.end)}`}
+                              >
+                                {countdown.label}
+                              </span>
+                            )}
+                          </p>
+                        </div>
                         <div className="gb-card-foot">
                           <strong className="gb-card-grade">
                             {m?.letter || "—"}
@@ -610,6 +604,19 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
               )}
             </>
           )}
+          <div className="gb-status">
+            <span>
+              {data.courses.length} classes · {marked.length} reported grades
+              {missing > 0 && (
+                <span className="gb-missing-count"> · {missing} missing</span>
+              )}
+            </span>
+            <span>
+              {sample
+                ? "StudentVUE preview"
+                : `Updated ${new Date(data.fetchedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
+            </span>
+          </div>
           <p className="gb-footnote">
             <ShieldCheck size={14} />{" "}
             {sample ? "Demo only" : "Reported grades from StudentVUE / Synergy"}{" "}
@@ -624,7 +631,13 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   );
 }
 
-function CourseDetails({ course }: { course: GradeCourse }) {
+function CourseDetails({
+  course,
+  controls,
+}: {
+  course: GradeCourse;
+  controls: ReactNode;
+}) {
   const [markIndex, setMarkIndex] = useState(0);
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -661,9 +674,10 @@ function CourseDetails({ course }: { course: GradeCourse }) {
         )}
       </div>
       {mark ? (
-        <MarkDetails key={markIndex} mark={mark} />
+        <MarkDetails key={markIndex} mark={mark} controls={controls} />
       ) : (
         <div className="gb-empty">
+          {controls}
           <h3>No grade posted</h3>
           <p>Your teacher has not published a grade for this class.</p>
         </div>
@@ -731,7 +745,13 @@ function ScoreField({
   );
 }
 
-function MarkDetails({ mark }: { mark: GradeMark }) {
+function MarkDetails({
+  mark,
+  controls,
+}: {
+  mark: GradeMark;
+  controls: ReactNode;
+}) {
   const [query, setQuery] = useState(""),
     [filter, setFilter] = useState("all"),
     [sort, setSort] = useState("newest");
@@ -833,7 +853,14 @@ function MarkDetails({ mark }: { mark: GradeMark }) {
           </span>
         )}
       </div>
-      <div className="gb-bar gb-bar-total" data-grade={gradeTone(mark.letter)}>
+      <div
+        className="gb-bar gb-bar-total"
+        data-grade={
+          changed && estimate !== null
+            ? scoreTone(estimate)
+            : gradeTone(mark.letter)
+        }
+      >
         <span className="gb-bar-fill" style={barStyle(shown)} />
         <span className="gb-bar-label">
           Total{shown !== null ? ` (${percent(shown)})` : ""}
@@ -846,7 +873,15 @@ function MarkDetails({ mark }: { mark: GradeMark }) {
             ? (a.earned / a.possible) * 100
             : null;
         return (
-          <div className="gb-bar" key={i}>
+          <div
+            className="gb-bar"
+            key={i}
+            data-grade={
+              changed || gradeTone(c.reportedGrade) === "none"
+                ? scoreTone(pct)
+                : gradeTone(c.reportedGrade)
+            }
+          >
             <span className="gb-bar-fill" style={barStyle(pct)} />
             <span className="gb-bar-label">
               {c.name} ({percent(pct)}) - {points(a.earned)}/
@@ -871,6 +906,7 @@ function MarkDetails({ mark }: { mark: GradeMark }) {
       )}
 
       <div className="gb-detail-actions">
+        {controls}
         <button
           className="button"
           onClick={addRow}
@@ -1005,7 +1041,14 @@ function MarkDetails({ mark }: { mark: GradeMark }) {
                     ) : null}
                   </td>
                   <td>
-                    <div className="gb-score">
+                    <div
+                      className="gb-score"
+                      data-grade={
+                        a.excluded || o.earned === "" || num(o.possible) <= 0
+                          ? "none"
+                          : scoreTone((num(o.earned) / num(o.possible)) * 100)
+                      }
+                    >
                       <ScoreField
                         label={`${a.name} points earned`}
                         value={o.earned}
