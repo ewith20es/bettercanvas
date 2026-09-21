@@ -30,8 +30,10 @@ import {
   activeMeeting,
   clockLabel,
   estimateGrade,
+  gradeDisplay,
   gradeTone,
   hasGradeScore,
+  letterFromPercent,
   type Gradebook as GradebookData,
   type GradebookConnection,
   type GradeAssignment,
@@ -50,19 +52,10 @@ import "@fontsource-variable/manrope";
 const studentVue = "https://md-mcps-psv.edupoint.com/PXP2_Login_Student.aspx";
 const percent = (n: number | null) =>
   n === null ? "—" : `${Number(n.toFixed(2))}%`;
-// Visual color bands only; reported letter grades and scores stay unchanged.
-const scoreTone = (value: number | null) =>
-  value === null
-    ? "none"
-    : value >= 89.5
-      ? "a"
-      : value >= 79.5
-        ? "b"
-        : value >= 69.5
-          ? "c"
-          : value >= 59.5
-            ? "d"
-            : "f";
+// Use the same MCPS scale for course letters, category bars and score colors.
+const scoreTone = (value: number | null) => gradeTone(letterFromPercent(value));
+const calculatedGradeHint =
+  "Letter calculated from the StudentVUE percentage using the MCPS grading scale.";
 const points = (n: number | null) =>
   n === null ? "—" : Number(n.toFixed(2)).toString();
 const date = (s: string) =>
@@ -255,8 +248,13 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
     );
   const marked =
     data?.courses.filter(
-      (c) => c.marks[0]?.letter && c.marks[0].letter !== "N/A",
+      (c) =>
+        Number.isFinite(c.marks[0]?.percent) ||
+        gradeTone(c.marks[0]?.letter ?? "") !== "none",
     ) ?? [];
+  const hasCalculatedLetters = data?.courses.some((c) =>
+    c.marks.some((m) => gradeDisplay(m).calculated),
+  );
   const missing =
     data?.courses.reduce(
       (sum, c) =>
@@ -492,6 +490,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                 <div className="gb-grid">
                   {courses.map((c) => {
                     const m = c.marks[0];
+                    const grade = gradeDisplay(m);
                     const live =
                       countdown !== null &&
                       c.period !== null &&
@@ -500,7 +499,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                       <button
                         key={c.id}
                         className="gb-course"
-                        data-grade={gradeTone(m?.letter ?? "")}
+                        data-grade={grade.tone}
                         data-live={live ? "true" : undefined}
                         onClick={() => setParams({ course: c.id })}
                       >
@@ -522,8 +521,13 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                           </p>
                         </div>
                         <div className="gb-card-foot">
-                          <strong className="gb-card-grade">
-                            {m?.letter || "—"}
+                          <strong
+                            className="gb-card-grade"
+                            title={
+                              grade.calculated ? calculatedGradeHint : undefined
+                            }
+                          >
+                            {grade.letter}
                             {m?.percent !== null &&
                               m?.percent !== undefined && (
                                 <span> ({percent(m.percent)})</span>
@@ -549,6 +553,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                     <tbody>
                       {courses.map((c) => {
                         const m = c.marks[0];
+                        const grade = gradeDisplay(m);
                         const live =
                           countdown !== null &&
                           c.period !== null &&
@@ -574,9 +579,14 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                             <td>{c.teacher || "—"}</td>
                             <td
                               className="gb-grade-cell"
-                              data-grade={gradeTone(m?.letter ?? "")}
+                              data-grade={grade.tone}
+                              title={
+                                grade.calculated
+                                  ? calculatedGradeHint
+                                  : undefined
+                              }
                             >
-                              <strong>{m?.letter || "N/A"}</strong>
+                              <strong>{grade.letter}</strong>
                               {m?.percent !== null &&
                                 m?.percent !== undefined && (
                                   <span> ({percent(m.percent)})</span>
@@ -620,6 +630,12 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
           <p className="gb-footnote">
             <ShieldCheck size={14} />{" "}
             {sample ? "Demo only" : "Reported grades from StudentVUE / Synergy"}{" "}
+            {hasCalculatedLetters && (
+              <span>
+                · Letters are calculated from percentages when StudentVUE has
+                not posted one.
+              </span>
+            )}
             · What-if scores are estimates and do not change your grades.
             <a href={studentVue} target="_blank" rel="noreferrer">
               Open StudentVUE ↗
@@ -824,6 +840,7 @@ function MarkDetails({
   const estimate = estimateGrade(adjusted);
   const baseline = estimateGrade(categories);
   const shown = changed && estimate !== null ? estimate : mark.percent;
+  const grade = gradeDisplay(mark);
 
   const assignments = [...mark.assignments]
     .filter(
@@ -842,23 +859,25 @@ function MarkDetails({
 
   return (
     <>
-      <div className="gb-grade-head" data-grade={gradeTone(mark.letter)}>
-        <div className="gb-grade-figure">
-          <strong>{mark.letter || "N/A"}</strong>
+      <div className="gb-grade-head" data-grade={grade.tone}>
+        <div
+          className="gb-grade-figure"
+          title={grade.calculated ? calculatedGradeHint : undefined}
+        >
+          <strong>{grade.letter}</strong>
           {mark.percent !== null && <span>({percent(mark.percent)})</span>}
         </div>
         {changed && estimate !== null && (
           <span className="gb-estimate-chip">
-            <Calculator size={14} /> What-if estimate {percent(estimate)}
+            <Calculator size={14} /> What-if estimate{" "}
+            {letterFromPercent(estimate)} ({percent(estimate)})
           </span>
         )}
       </div>
       <div
         className="gb-bar gb-bar-total"
         data-grade={
-          changed && estimate !== null
-            ? scoreTone(estimate)
-            : gradeTone(mark.letter)
+          changed && estimate !== null ? scoreTone(estimate) : grade.tone
         }
       >
         <span className="gb-bar-fill" style={barStyle(shown)} />

@@ -189,13 +189,13 @@
   min-width: 0;
 }
 .gb-page [data-grade="a"] {
-  --grade-accent: #4ade80;
+  --grade-accent: #6bc190;
 }
 .gb-page [data-grade="b"] {
   --grade-accent: #60a5fa;
 }
 .gb-page [data-grade="c"] {
-  --grade-accent: #facc15;
+  --grade-accent: #d4a401;
 }
 .gb-page [data-grade="d"] {
   --grade-accent: #fb923c;

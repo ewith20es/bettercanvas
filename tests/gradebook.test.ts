@@ -11,6 +11,7 @@ import {
   activeMeeting,
   clockLabel,
   estimateGrade,
+  gradeDisplay,
   hasGradeScore,
 } from "../packages/domain/src/gradebook";
 
@@ -85,6 +86,26 @@ describe("Synergy gradebook normalization", () => {
       ),
     ).toThrow("did not accept");
   });
+  it.each(["", "76.47", "76.47%"])(
+    "displays a letter and color for a pre-interim numeric grade (%j)",
+    (scoreString) => {
+      const xml = fixture
+        .replace(
+          'CalculatedScoreString="B"',
+          `CalculatedScoreString="${scoreString}"`,
+        )
+        .replace('CalculatedScoreRaw="87.50"', 'CalculatedScoreRaw="76.47"');
+      const mark = parseGradebook(multiWebEnvelope(xml)).courses[1].marks[0];
+      expect(gradeDisplay(mark)).toEqual({
+        letter: "C",
+        tone: "c",
+        calculated: true,
+      });
+      // The display fallback must not replace the raw data from StudentVUE.
+      expect(mark.letter).toBe(scoreString);
+      expect(mark.percent).toBe(76.47);
+    },
+  );
   it("does not turn blank or suppressed grades into zero", () => {
     expect(
       parseGradebook(

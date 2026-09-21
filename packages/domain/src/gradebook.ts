@@ -82,12 +82,45 @@ export function hasGradeScore(a: GradeAssignment) {
 }
 
 export function gradeTone(letter: string) {
+  letter = letter.trim().toUpperCase();
   if (/^A[+-]?$/.test(letter)) return "a";
   if (/^B[+-]?$/.test(letter)) return "b";
   if (/^C[+-]?$/.test(letter)) return "c";
   if (/^D[+-]?$/.test(letter)) return "d";
   if (/^[EF][+-]?$/.test(letter)) return "f";
   return "none";
+}
+
+// MCPS uses whole-number rounding for its A/B/C/D/E scale. Keep the
+// unrounded percentage for display; 89.5 is an A, but 89.49 is still a B.
+// https://www.montgomeryschoolsmd.org/curriculum/course-catalog/profile/
+export function letterFromPercent(percent: number | null | undefined) {
+  if (percent == null || !Number.isFinite(percent) || percent < 0) return "N/A";
+  if (percent >= 89.5) return "A";
+  if (percent >= 79.5) return "B";
+  if (percent >= 69.5) return "C";
+  if (percent >= 59.5) return "D";
+  return "E";
+}
+
+// CalculatedScoreString can contain a percentage before letters are posted.
+// Derive a display letter without changing Synergy's reported fields. Preserve
+// explicit letter grades and special marks such as P or I when provided.
+export function gradeDisplay(mark?: Pick<GradeMark, "letter" | "percent">) {
+  const reported = mark?.letter.trim() ?? "";
+  const canCalculate =
+    /^(?:n\/?a|not\s*(?:graded|scored)|ungraded|[-—])?$/i.test(reported) ||
+    /^\d+(?:\.\d+)?\s*%?$/.test(reported);
+  const fallback = canCalculate ? letterFromPercent(mark?.percent) : "N/A";
+  const calculated = fallback !== "N/A";
+  const letter = calculated
+    ? fallback
+    : gradeTone(reported) !== "none"
+      ? reported.toUpperCase()
+      : canCalculate
+        ? "N/A"
+        : reported;
+  return { letter, tone: gradeTone(letter), calculated };
 }
 
 export type WhatIfEntry = {

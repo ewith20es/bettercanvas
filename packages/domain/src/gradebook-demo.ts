@@ -1,4 +1,9 @@
-import type { Gradebook, GradeCourse, TodaySchedule } from "./gradebook";
+import {
+  letterFromPercent,
+  type Gradebook,
+  type GradeCourse,
+  type TodaySchedule,
+} from "./gradebook";
 
 // A stand-in bell schedule so the class countdown is visible in the preview.
 // Blocks are anchored to the viewer's current hour so one class is always in
@@ -38,7 +43,7 @@ export function demoGradebook(periodIndex = 0): Gradebook {
     [1, "Hon English 9A", "Angel Olivero", "P14", 94.5, "A"],
     [2, "Hon Spanish 3A", "Michela Corcorran", "163", 88, "B"],
     [3, "Photography 1A", "Kelly Crowder", "004", 97, "A"],
-    [4, "Mag Functions A", "William Rose", "309", 84, "B"],
+    [4, "Mag Functions A", "William Rose", "309", 76.47, "C"],
     [6, "Adv Sci1 Physics DP", "Evan Porch", "215", 92, "A"],
     [7, "Research Exp ProbSolv 1A", "Daniel Pedersen", "211", 96, "A"],
     [8, "Fnd Computer Sci A", "Steffany Koval", "328", 98, "A"],
@@ -56,7 +61,10 @@ export function demoGradebook(periodIndex = 0): Gradebook {
           marks: [
             {
               name: "Quarter grade",
-              letter,
+              // Include the pre-interim shapes returned by StudentVUE so the
+              // preview exercises calculated letters as well as posted ones.
+              letter:
+                period === 1 ? String(percent) : period === 4 ? "" : letter,
               percent,
               categories: [
                 {
@@ -64,14 +72,14 @@ export function demoGradebook(periodIndex = 0): Gradebook {
                   weight: 90,
                   earned: percent - 0.5,
                   possible: 100,
-                  reportedGrade: letter,
+                  reportedGrade: letterFromPercent(percent - 0.5),
                 },
                 {
                   name: "Practice / Preparation",
                   weight: 10,
                   earned: percent + 4.5,
                   possible: 100,
-                  reportedGrade: "A",
+                  reportedGrade: letterFromPercent(percent + 4.5),
                 },
               ],
               assignments: [
