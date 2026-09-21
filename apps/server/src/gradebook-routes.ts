@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type {
   Gradebook,
@@ -38,12 +38,16 @@ const periodInput = z
   .strict();
 const connectionAge = 60 * 60 * 1000;
 const renewWindow = 5 * 60 * 1000;
+const maxConnections = 30;
 
 export function registerGradebook(
   app: FastifyInstance,
   options: {
     enabled: boolean;
-    sessions: Map<string, number>;
+    /** The signed-in session id for a cookie, or null when signed out. */
+    session: (token?: string) => string | null;
+    /** True once a session id has signed out. */
+    revoked: (id: string) => boolean;
     factory?: SynergyFactory;
     /** Null disables "keep me signed in". */
     rememberKey?: Buffer | null;
@@ -66,8 +70,9 @@ export function registerGradebook(
     connections.get(key)?.client.dispose();
     connections.delete(key);
   };
-  const sessionValid = (key: string) =>
-    (options.sessions.get(key) ?? 0) > Date.now();
+  const sessionValid = (key: string) => key !== "" && !options.revoked(key);
+  const sessionKey = (req: FastifyRequest) =>
+    options.session(req.cookies.bc_session) ?? "";
   const get = (key: string) => {
     const connection = connections.get(key);
     if (
@@ -110,6 +115,9 @@ export function registerGradebook(
   /** Signs in to StudentVUE and loads the first gradebook for this session. */
   const open = async (key: string, username: string, password: string) => {
     forget(key);
+    // Bound memory use: drop the oldest connection beyond 30 signed-in devices.
+    if (connections.size >= maxConnections)
+      forget(connections.keys().next().value!);
     const c: Connection = {
       client: (options.factory ?? ((u, p) => new SynergyClient(u, p)))(
         username,
@@ -146,13 +154,13 @@ export function registerGradebook(
     "Set an app passphrase of at least 8 characters and sign in to Better Canvas before connecting StudentVUE.";
 
   app.get("/api/gradebook", async (req) =>
-    state(req.cookies.bc_session ?? "", req.cookies[rememberCookie]),
+    state(sessionKey(req), req.cookies[rememberCookie]),
   );
   app.post(
     "/api/gradebook/connect",
     { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } },
     async (req, reply) => {
-      const key = req.cookies.bc_session ?? "";
+      const key = sessionKey(req);
       if (!options.enabled || !sessionValid(key))
         return reply.code(403).send({ error: notReady });
       const parsed = credentials.safeParse(req.body);
@@ -186,7 +194,7 @@ export function registerGradebook(
     "/api/gradebook/resume",
     { config: { rateLimit: { max: 10, timeWindow: "15 minutes" } } },
     async (req, reply) => {
-      const key = req.cookies.bc_session ?? "";
+      const key = sessionKey(req);
       if (!options.enabled || !sessionValid(key))
         return reply.code(403).send({ error: notReady });
       const value = req.cookies[rememberCookie],
@@ -229,7 +237,7 @@ export function registerGradebook(
     "/api/gradebook/refresh",
     { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (req, reply) => {
-      const key = req.cookies.bc_session ?? "",
+      const key = sessionKey(req),
         c = get(key);
       if (!c?.snapshot)
         return reply
@@ -277,7 +285,7 @@ export function registerGradebook(
     },
   );
   app.post("/api/gradebook/disconnect", async (req, reply) => {
-    const key = req.cookies.bc_session ?? "";
+    const key = sessionKey(req);
     forget(key);
     // Disconnecting is an explicit "forget me" on this device.
     forgetLogin(reply);

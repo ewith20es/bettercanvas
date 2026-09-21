@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyReply } from "fastify";
 import cookie from "@fastify/cookie";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
@@ -11,6 +11,7 @@ import type { Snapshot } from "../../../packages/domain/src";
 import { CanvasClient } from "./canvas";
 import { registerGradebook, type SynergyFactory } from "./gradebook-routes";
 import { rememberKey } from "./remember";
+import { sessionAge, SessionStore } from "./sessions";
 import { SynergyError } from "./synergy";
 
 export type Config = {
@@ -18,8 +19,8 @@ export type Config = {
   canvasOrigin: string;
   token?: string;
   password?: string;
-  /** Optional dedicated key for remembered StudentVUE sign-ins (32+ chars). */
-  gradebookSecret?: string;
+  /** Optional extra key material (32+ chars) for sessions and saved sign-ins. */
+  secret?: string;
   production: boolean;
 };
 export async function buildApp(
@@ -77,13 +78,21 @@ export async function buildApp(
     passwordHash = config.password
       ? scryptSync(config.password, passwordSalt, 64)
       : null;
-  const sessions = new Map<string, number>();
-  const sessionAge = 7 * 24 * 60 * 60 * 1000;
-  const validSession = (value?: string) => {
-    if (!passwordHash) return true;
-    const expiry = value ? sessions.get(value) : null;
-    return expiry != null && expiry > Date.now();
-  };
+  const secret =
+    config.secret && config.secret.length >= 32 ? config.secret : undefined;
+  const sessions = config.password
+    ? new SessionStore(config.password, secret)
+    : null;
+  const validSession = (value?: string) =>
+    !passwordHash || !!sessions?.verify(value);
+  const sessionCookie = (reply: FastifyReply, token: string) =>
+    reply.setCookie("bc_session", token, {
+      httpOnly: true,
+      secure: config.production,
+      sameSite: "strict",
+      path: "/",
+      maxAge: sessionAge / 1000,
+    });
   const live =
     client ?? new CanvasClient(config.canvasOrigin, config.token ?? "");
   let snapshot: Snapshot | undefined,
@@ -110,17 +119,24 @@ export async function buildApp(
   });
   const gradebook = registerGradebook(app, {
     enabled: (config.password?.length ?? 0) >= 8,
-    sessions,
+    session: (token) => sessions?.verify(token)?.id ?? null,
+    revoked: (id) => !!sessions?.isRevoked(id),
     factory: synergyFactory,
-    rememberKey: rememberKey(config.gradebookSecret, config.password),
+    rememberKey: rememberKey(secret, config.password),
     secure: config.production,
   });
   app.get("/api/health", async () => ({ ok: true }));
-  app.get("/api/bootstrap", async (req) => ({
-    authenticated: validSession(req.cookies.bc_session),
-    requiresLogin: !!passwordHash,
-    demo: !config.token,
-  }));
+  app.get("/api/bootstrap", async (req, reply) => {
+    // Opening the app keeps a signed-in device signed in for another 30 days.
+    const session = sessions?.verify(req.cookies.bc_session);
+    if (session && sessions!.shouldRenew(session))
+      sessionCookie(reply, sessions!.issue(session.id).token);
+    return {
+      authenticated: validSession(req.cookies.bc_session),
+      requiresLogin: !!passwordHash,
+      demo: !config.token,
+    };
+  });
   app.post(
     "/api/login",
     { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } },
@@ -136,38 +152,23 @@ export async function buildApp(
           .code(401)
           .send({ error: "That passphrase was not accepted." });
       }
-      // Expired sessions and a bounded active-session count keep memory use predictable.
-      for (const [key, expiry] of sessions)
-        if (expiry <= Date.now()) {
-          sessions.delete(key);
-          gradebook.forget(key);
-        }
-      if (sessions.size >= 30) {
-        const oldest = sessions.keys().next().value!;
-        sessions.delete(oldest);
-        gradebook.forget(oldest);
+      const previous = sessions!.verify(req.cookies.bc_session);
+      if (previous) {
+        gradebook.forget(previous.id);
+        sessions!.revoke(previous);
       }
-      if (req.cookies.bc_session) {
-        gradebook.forget(req.cookies.bc_session);
-        sessions.delete(req.cookies.bc_session);
-      }
-      const session = randomBytes(32).toString("hex");
-      sessions.set(session, Date.now() + sessionAge);
-      reply.setCookie("bc_session", session, {
-        httpOnly: true,
-        secure: config.production,
-        sameSite: "strict",
-        path: "/",
-        maxAge: sessionAge / 1000,
-      });
+      sessionCookie(reply, sessions!.issue().token);
       return { ok: true };
     },
   );
   app.post("/api/logout", async (req, reply) => {
-    gradebook.forget(req.cookies.bc_session ?? "");
+    const session = sessions?.verify(req.cookies.bc_session);
+    if (session) {
+      gradebook.forget(session.id);
+      sessions!.revoke(session);
+    }
     // Signing out of Better Canvas also forgets the saved StudentVUE sign-in.
     gradebook.forgetLogin(reply);
-    sessions.delete(req.cookies.bc_session ?? "");
     reply.clearCookie("bc_session", { path: "/" });
     return { ok: true };
   });

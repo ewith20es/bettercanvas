@@ -14,7 +14,8 @@ const app = await buildApp({
   canvasOrigin,
   token: process.env.CANVAS_ACCESS_TOKEN,
   password: process.env.APP_PASSWORD,
-  gradebookSecret: process.env.GRADEBOOK_SECRET,
+  // GRADEBOOK_SECRET is the earlier name for APP_SECRET and still works.
+  secret: process.env.APP_SECRET || process.env.GRADEBOOK_SECRET,
   origin:
     process.env.APP_ORIGIN ||
     process.env.RENDER_EXTERNAL_URL ||

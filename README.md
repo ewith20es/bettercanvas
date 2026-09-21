@@ -42,7 +42,7 @@ StudentVUE requires credentials with each request. The live connection is held i
 
 **Keep me signed in** (on by default in the connect form) saves your StudentVUE sign-in so you do not retype it when you reopen the app, after the hour ends, or after Render restarts. The student ID and password are encrypted with AES-256-GCM using a server-only key and stored in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie that is sent only to `/api/gradebook` and expires after 30 days. Page scripts cannot read it, and it is useless without a signed-in Better Canvas session. The app reconnects automatically on launch and renews the connection shortly before each hour ends. Disconnecting StudentVUE, signing out of Better Canvas, or StudentVUE rejecting the saved password deletes it. Untick the box to keep the old memory-only behavior.
 
-The encryption key comes from `GRADEBOOK_SECRET` (32+ random characters; Render generates one from `render.yaml`) or, if that is not set, from `APP_PASSWORD`. Changing either signs every device out of StudentVUE. Nothing is saved to a database, browser storage, service-worker cache, logs, or source code.
+The encryption key comes from `APP_SECRET` (32+ random characters; Render generates one from `render.yaml`; the older name `GRADEBOOK_SECRET` also works) or, if that is not set, from `APP_PASSWORD`. Changing either signs every device out of StudentVUE. Nothing is saved to a database, browser storage, service-worker cache, logs, or source code.
 
 The page uses GradeDurian-inspired grade cards, progress bars, category breakdowns, and a what-if calculator. Reported grades are displayed unchanged. The calculator adds one hypothetical assignment to Synergy's category totals, renormalizes populated category weights, and labels the result as an **estimate**. It never changes StudentVUE and does not claim to calculate an official GPA or final grade. Unknown weights or totals disable the estimate; unknown scores are not treated as zero. Schools using standards-based gradebooks receive an unsupported-format message.
 
@@ -76,14 +76,14 @@ Set these in Render's Environment panel:
 | `CANVAS_BASE_URL`     | `https://mcpsmd.instructure.com`                                                                                                |
 | `CANVAS_ACCESS_TOKEN` | Your own Canvas token; enter directly in Render                                                                                 |
 | `APP_PASSWORD`        | A separate strong app passphrase, at least 8 characters                                                                         |
-| `GRADEBOOK_SECRET`    | Optional. 32+ random characters that encrypt remembered StudentVUE sign-ins. Falls back to `APP_PASSWORD`.                      |
+| `APP_SECRET`          | Optional. 32+ random characters that sign app sessions and encrypt saved StudentVUE sign-ins, in addition to `APP_PASSWORD`.   |
 | `APP_ORIGIN`          | Optional for the default Render address; required for a custom domain. Use the exact HTTPS app origin without a trailing slash. |
 
 The backend automatically uses `RENDER_EXTERNAL_URL` for the standard Render address and listens on Render's assigned `PORT`. It serves the React build and `/api` from the same origin. Do not prefix secrets with `VITE_`.
 
 To first deploy a public demo, leave the Canvas token and app passphrase empty. **This only serves sample data.** Add both secrets together before switching to live Canvas data. Live mode is protected by the app passphrase on every assignment-data route.
 
-The free service may sleep. The first visit can take longer while it wakes. Sessions and the server's assignment snapshot are in memory: a restart or sleep that restarts the process requires signing in again. This v1 uses one server instance. It does not need a cloud database or persistent disk.
+The free service may sleep. The first visit can take longer while it wakes. Signing in keeps a device signed in for 30 days, renewed each day you open the app, and it survives sleeps and restarts: the session cookie carries its own HMAC-signed expiry instead of relying on server memory. Changing `APP_PASSWORD` or `APP_SECRET` signs every device out. Signing out takes effect immediately and deletes the cookie; the server's sign-out list is in memory, so a copied cookie would work again after a restart until it expires. The server's assignment snapshot is still in memory and reloads after a restart. This v1 uses one server instance. It does not need a cloud database or persistent disk.
 
 ## Features
 

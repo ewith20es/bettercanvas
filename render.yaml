@@ -18,7 +18,7 @@ services:
         sync: false
       - key: APP_PASSWORD
         sync: false
-      - key: GRADEBOOK_SECRET
+      - key: APP_SECRET
         generateValue: true
 # APP_ORIGIN automatically uses RENDER_EXTERNAL_URL.
 # Add APP_ORIGIN explicitly if using a custom domain.
