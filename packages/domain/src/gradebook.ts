@@ -182,6 +182,34 @@ export function estimateGrade(
   return weight > 0 ? (weighted / weight) * 100 : null;
 }
 
+// How far a grading period is from now, worded the way StudentVUE helpers do:
+// "ends in 11 days", "starts in 13 days", "ended 3 days ago", "ends today".
+// Returns "" when the dates are missing or unusable, so callers fall back to
+// showing the period name on its own.
+export function periodTiming(
+  period: Pick<GradePeriod, "start" | "end">,
+  now: number,
+): string {
+  const at = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+    const time = Date.parse(`${value}T12:00:00Z`);
+    return Number.isFinite(time) ? time : null;
+  };
+  const day = 86400000;
+  const days = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
+  const start = at(period.start),
+    end = at(period.end);
+  if (start !== null) {
+    const toStart = Math.floor((start - now) / day);
+    if (toStart > 0) return `starts in ${days(toStart)}`;
+  }
+  if (end === null) return "";
+  const left = Math.ceil((end - now) / day);
+  if (left > 0) return `ends in ${days(left)}`;
+  const ago = Math.floor((now - end) / day);
+  return ago > 0 ? `ended ${days(ago)} ago` : "ends today";
+}
+
 // Minutes since midnight -> "9:15 AM", for schedule labels.
 export function clockLabel(minutes: number) {
   const h = Math.floor(minutes / 60),

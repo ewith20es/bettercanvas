@@ -6,6 +6,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -34,6 +35,7 @@ import {
   gradeTone,
   hasGradeScore,
   letterFromPercent,
+  periodTiming,
   type Gradebook as GradebookData,
   type GradebookConnection,
   type GradeAssignment,
@@ -268,6 +270,14 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   const countdown = useClassCountdown(
     sample ? sampleSchedule.current : (connection?.schedule ?? null),
   );
+  // Grading-period wording only changes by the day, so a value taken per render
+  // is stable enough and avoids a second ticking clock.
+  const now = Date.now();
+  // The app topbar owns this node; it exists once the shell has rendered.
+  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setTopbarSlot(document.getElementById("gb-topbar-actions"));
+  }, []);
   const selected = data?.courses.find((c) => c.id === params.get("course"));
   const refresh = (period?: number) => {
     if (sample) {
@@ -331,11 +341,14 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
             refresh(Number(e.target.value));
           }}
         >
-          {data.periods.map((p) => (
-            <option key={p.index} value={p.index}>
-              {p.start ? `${p.name} (${date(p.start)})` : p.name}
-            </option>
-          ))}
+          {data.periods.map((p) => {
+            const timing = periodTiming(p, now);
+            return (
+              <option key={p.index} value={p.index}>
+                {timing ? `${p.name} (${timing})` : p.name}
+              </option>
+            );
+          })}
         </select>
         {!selected && (
           <button
@@ -388,23 +401,32 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
             </div>
           </details>
         )}
-        {!sample && (
-          <button
-            className="icon-button"
-            disabled={busy}
-            title="Disconnect StudentVUE and forget this device's sign-in"
-            aria-label="Disconnect StudentVUE"
-            onClick={() => void run("gradebook/disconnect")}
-          >
-            <LogOut size={18} />
-          </button>
-        )}
       </div>
     </div>
   );
 
+  // Rendered into the app topbar next to the theme toggle. Shown only with a
+  // real connection to end, matching where this button used to live.
+  const disconnect =
+    topbarSlot &&
+    data &&
+    !sample &&
+    createPortal(
+      <button
+        className="icon-button gb-topbar-disconnect"
+        disabled={busy}
+        title="Disconnect StudentVUE and forget this device's sign-in"
+        aria-label="Disconnect StudentVUE"
+        onClick={() => void run("gradebook/disconnect")}
+      >
+        <LogOut size={18} />
+      </button>,
+      topbarSlot,
+    );
+
   return (
     <div className="gb-page">
+      {disconnect}
       {error && (
         <div className="notice" role="alert">
           {error}

@@ -13,6 +13,7 @@ import {
   estimateGrade,
   gradeDisplay,
   hasGradeScore,
+  periodTiming,
 } from "../packages/domain/src/gradebook";
 
 const escape = (s: string) =>
@@ -435,6 +436,47 @@ describe("class countdown", () => {
     expect(clockLabel(720)).toBe("12:00 PM");
     expect(clockLabel(555)).toBe("9:15 AM");
     expect(clockLabel(785)).toBe("1:05 PM");
+  });
+});
+
+describe("grading period timing", () => {
+  const now = Date.parse("2026-09-21T12:00:00Z");
+  const period = (start: string, end: string) => ({ start, end });
+  it("counts down to the end of a period that is under way", () => {
+    expect(periodTiming(period("2026-08-25", "2026-10-30"), now)).toBe(
+      "ends in 39 days",
+    );
+    expect(periodTiming(period("2026-08-25", "2026-09-22"), now)).toBe(
+      "ends in 1 day",
+    );
+  });
+  it("counts down to a period that has not started, start taking priority", () => {
+    expect(periodTiming(period("2026-11-02", "2027-01-22"), now)).toBe(
+      "starts in 42 days",
+    );
+    expect(periodTiming(period("2026-09-22", "2026-11-30"), now)).toBe(
+      "starts in 1 day",
+    );
+  });
+  it("reports periods ending today and already ended", () => {
+    expect(periodTiming(period("2026-08-25", "2026-09-21"), now)).toBe(
+      "ends today",
+    );
+    expect(periodTiming(period("2026-08-25", "2026-09-18"), now)).toBe(
+      "ended 3 days ago",
+    );
+    expect(periodTiming(period("2026-08-25", "2026-09-20"), now)).toBe(
+      "ended 1 day ago",
+    );
+  });
+  it("stays silent when StudentVUE omits or mangles the dates", () => {
+    expect(periodTiming(period("", ""), now)).toBe("");
+    expect(periodTiming(period("2026-08-25", ""), now)).toBe("");
+    expect(periodTiming(period("not a date", "also not"), now)).toBe("");
+    // A start-only future period still reads correctly.
+    expect(periodTiming(period("2026-11-02", ""), now)).toBe(
+      "starts in 42 days",
+    );
   });
 });
 

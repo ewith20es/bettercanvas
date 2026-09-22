@@ -67,10 +67,23 @@
   align-items: center;
   gap: 22px;
 }
-.gradebook-shell .gb-theme-toggle {
+.gradebook-shell .gb-theme-toggle,
+.gradebook-shell .gb-topbar-disconnect {
   border: 0;
   background: transparent;
   color: var(--muted);
+}
+/* Holds the Gradebook's disconnect button, which is portalled in. Collapses
+   to nothing on other pages and before the gradebook connects. */
+.gb-topbar-actions {
+  display: flex;
+  align-items: center;
+}
+.gb-topbar-actions:empty {
+  display: none;
+}
+.gradebook-shell .gb-topbar-disconnect:hover:not(:disabled) {
+  color: var(--text);
 }
 .gb-sun {
   display: none;

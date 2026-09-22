@@ -371,6 +371,10 @@ export default function App() {
                   <Moon className="gb-moon" size={20} />
                   <Sun className="gb-sun" size={20} />
                 </button>
+                {/* The Gradebook page portals its disconnect button in here,
+                    so the control sits beside the theme toggle while its
+                    connection state stays inside <Gradebook>. */}
+                <div id="gb-topbar-actions" className="gb-topbar-actions" />
                 <span
                   className="avatar"
                   title={data.demo ? "Demo workspace" : data.account.name}
