@@ -15,11 +15,9 @@ import {
   ChevronRight,
   Home as HomeIcon,
   LayoutList,
-  Moon,
   RefreshCw,
   Settings as SettingsIcon,
   ShieldCheck,
-  Sun,
   WifiOff,
 } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
@@ -344,73 +342,32 @@ export default function App() {
       </aside>
       <main id="main-content">
         <header className="topbar">
-          {title === "Gradebook" ? (
-            <>
-              <Link
-                className="gb-app-brand"
-                to="/"
-                aria-label="Better Canvas home"
-              >
-                <img src="/favicon.svg" alt="" width="32" height="32" />
-                Better Canvas
-              </Link>
-              <div className="gb-app-actions">
-                <button
-                  className="icon-button gb-theme-toggle"
-                  aria-label="Toggle color theme"
-                  title="Toggle color theme"
-                  onClick={() =>
-                    updatePrefs({
-                      theme:
-                        document.documentElement.dataset.theme === "dark"
-                          ? "light"
-                          : "dark",
-                    })
-                  }
-                >
-                  <Moon className="gb-moon" size={20} />
-                  <Sun className="gb-sun" size={20} />
-                </button>
-                {/* The Gradebook page portals its disconnect button in here,
-                    so the control sits beside the theme toggle while its
-                    connection state stays inside <Gradebook>. */}
-                <div id="gb-topbar-actions" className="gb-topbar-actions" />
-                <span
-                  className="avatar"
-                  title={data.demo ? "Demo workspace" : data.account.name}
-                >
-                  {data.account.name.slice(0, 1)}
-                </span>
-              </div>
-            </>
-          ) : (
-            <>
-              <span>
-                <Link
-                  className="topbar-logo"
-                  to="/"
-                  aria-label="Better Canvas home"
-                >
-                  <img src="/favicon.svg" alt="" width="28" height="28" />
-                </Link>
-                <span className="workspace-name">Workspace</span>
-                <ChevronRight size={14} />
-                <strong>{title}</strong>
-              </span>
-              <span className={data.demo ? "demo-pill" : "connection-pill"}>
-                {offline ? (
-                  <WifiOff size={14} />
-                ) : data.demo ? null : (
-                  <ShieldCheck size={14} />
-                )}{" "}
-                {title === "Gradebook"
-                  ? "StudentVUE / Synergy"
-                  : data.demo
-                    ? "Demo workspace"
-                    : freshness}
-              </span>
-            </>
-          )}
+          <span>
+            <Link
+              className="topbar-logo"
+              to="/"
+              aria-label="Better Canvas home"
+            >
+              <img src="/favicon.svg" alt="" width="28" height="28" />
+            </Link>
+            <span className="workspace-name">Workspace</span>
+            <ChevronRight size={14} />
+            <strong>{title}</strong>
+          </span>
+          <span>
+            <span className={data.demo ? "demo-pill" : "connection-pill"}>
+              {offline ? (
+                <WifiOff size={14} />
+              ) : data.demo ? null : (
+                <ShieldCheck size={14} />
+              )}{" "}
+              {data.demo ? "Demo workspace" : freshness}
+            </span>
+            {/* The Gradebook page portals its disconnect button in here, so the
+                control sits with the rest of the topbar while its connection
+                state stays inside <Gradebook>. Empty on every other page. */}
+            <div id="gb-topbar-actions" className="gb-topbar-actions" />
+          </span>
         </header>
         <div className="page">
           <div className="page-heading">

@@ -1,6 +1,13 @@
 /* GradeDurian's Grade Melon preset and Manrope typography, scoped to the
    Gradebook content area. The sidebar keeps the app's standard look. */
 .gradebook-shell main {
+  background: #f9fafb;
+  min-height: 100vh;
+}
+[data-theme="dark"] .gradebook-shell main {
+  background: #111827;
+}
+.gradebook-shell .page {
   --bg: #f9fafb;
   --paper: #ffffff;
   --text: #111827;
@@ -22,9 +29,8 @@
   background: var(--bg);
   color: var(--text);
   font-family: "Manrope Variable", Manrope, sans-serif;
-  min-height: 100vh;
 }
-[data-theme="dark"] .gradebook-shell main {
+[data-theme="dark"] .gradebook-shell .page {
   --bg: #111827;
   --paper: #1f2937;
   --text: #ffffff;
@@ -39,39 +45,12 @@
   --table-head: #374151;
   --track: #374151;
 }
-.gradebook-shell main :is(button, input, select) {
+.gradebook-shell .page :is(button, input, select) {
   font-family: inherit;
 }
-.gradebook-shell main :is(button, a, input, select, summary):focus-visible {
+.gradebook-shell .page :is(button, a, input, select, summary):focus-visible {
   outline: 3px solid var(--primary-focus);
   outline-offset: 3px;
-}
-.gradebook-shell .topbar {
-  height: 64px;
-  padding: 0 24px;
-  background: var(--paper);
-  border-bottom: 1px solid var(--line);
-  z-index: 21;
-  box-shadow: 0 1px 2px #00000008;
-}
-.gb-app-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.5px;
-}
-.gb-app-actions {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-}
-.gradebook-shell .gb-theme-toggle,
-.gradebook-shell .gb-topbar-disconnect {
-  border: 0;
-  background: transparent;
-  color: var(--muted);
 }
 /* Holds the Gradebook's disconnect button, which is portalled in. Collapses
    to nothing on other pages and before the gradebook connects. */
@@ -82,24 +61,28 @@
 .gb-topbar-actions:empty {
   display: none;
 }
-.gradebook-shell .gb-topbar-disconnect:hover:not(:disabled) {
+/* The topbar is shared app chrome, so the button stays a bare icon rather than
+   picking up the Gradebook page's bordered control styling. The extra
+   `.topbar` outranks `.gradebook-shell .icon-button` further down this file. */
+.gradebook-shell .topbar .gb-topbar-disconnect {
+  width: auto;
+  min-height: 0;
+  padding: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.gradebook-shell .topbar .gb-topbar-disconnect:hover:not(:disabled) {
+  background: #edf1f4;
   color: var(--text);
 }
-.gb-sun {
-  display: none;
-}
-[data-theme="dark"] .gb-moon {
-  display: none;
-}
-[data-theme="dark"] .gb-sun {
-  display: block;
-}
-.gradebook-shell .avatar {
-  width: 36px;
-  height: 36px;
-  background: var(--hover);
-  color: var(--text);
-  border: 1px solid var(--line);
+[data-theme="dark"]
+  .gradebook-shell
+  .topbar
+  .gb-topbar-disconnect:hover:not(:disabled) {
+  background: #283638;
 }
 .gradebook-shell .page {
   max-width: none;
@@ -936,16 +919,6 @@
   }
 }
 @media (max-width: 768px) {
-  .gradebook-shell .topbar {
-    height: 60px;
-    padding: 0 20px;
-  }
-  .gb-app-brand {
-    font-size: 18px;
-  }
-  .gb-app-actions {
-    gap: 10px;
-  }
   .gradebook-shell .page {
     /* Leave room for the bottom navigation bar on phones. */
     padding: 20px 20px 96px;

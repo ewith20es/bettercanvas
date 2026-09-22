@@ -405,7 +405,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
     </div>
   );
 
-  // Rendered into the app topbar next to the theme toggle. Shown only with a
+  // Rendered into the app topbar beside the connection pill. Shown only with a
   // real connection to end, matching where this button used to live.
   const disconnect =
     topbarSlot &&
