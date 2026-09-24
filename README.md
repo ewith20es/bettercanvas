@@ -28,7 +28,7 @@ MCPS token permission and actual account responses still need to be verified usi
 
 ## Connect StudentVUE / Synergy grades
 
-**MCPS SOAP block (UPD5304):** MCPS rejects direct StudentVUE SOAP calls with `UPD5304-00` ("update your app"). The block is applied at the network layer — a byte-identical request is refused when sent straight from a server but accepted when relayed through a StudentVUE proxy. Better Canvas therefore sends the same SOAP envelope through the StudentVUE proxy used by [GradeDurian](https://github.com/btdpass/GradeDurian) (`cloudproxy.gradedurian.workers.dev`), which reaches Synergy on the app's behalf. This is the same integration path GradeDurian uses, so the standard student ID / password connection works again.
+Better Canvas uses your own authenticated Cloudflare Worker to relay StudentVUE requests. Configure `STUDENTVUE_RELAY_URL` and `STUDENTVUE_RELAY_TOKEN` on the server; there is no fallback to a third-party proxy. See [Worker setup](workers/studentvue-relay/README.md). MCPS may return `UPD5304` ("update your app"); hosting a relay does not guarantee that MCPS accepts the request, and that error is shown separately from a relay outage.
 
 To connect:
 
@@ -36,7 +36,7 @@ To connect:
 2. Sign in to Better Canvas, open **Gradebook**, and enter your MCPS student ID and StudentVUE password directly in the app. Do not send credentials in chat or commit them to GitHub.
 3. Choose a grading period and select a course to see its reported grade, categories, assignments, points, and teacher notes. Courses appear in StudentVUE period order. Use **Refresh grades** to check again.
 
-All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. The backend builds the StudentVUE SOAP request for `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` and relays it through the GradeDurian StudentVUE proxy, which forwards it to Synergy; your StudentVUE credentials pass through that proxy in transit. Canvas remains the source for the separate assignment/submission views.
+All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. The backend builds the StudentVUE SOAP request for `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` and sends it over HTTPS through your configured Worker to Synergy. StudentVUE credentials pass through your Render server and Cloudflare Worker in transit. Canvas remains the source for the separate assignment/submission views.
 
 StudentVUE requires credentials with each request. The live connection is held in server memory for **one hour**, scoped to your signed-in app session; a cleanup timer removes expired connections within 30 seconds.
 
@@ -48,7 +48,7 @@ The page uses GradeDurian-inspired grade cards, progress bars, category breakdow
 
 Use **Preview with sample grades** to explore without connecting. Samples are always labeled and are never substituted for a failed live request. Gradebook updates are manual, with a 20-second server cache to avoid duplicate requests; this page does not poll StudentVUE. On a failed update, the last successful grades remain with their timestamp and an error notice.
 
-The connection is unit-tested with synthetic Synergy responses. The proxy relay was verified to reach live MCPS Synergy authentication (a wrong-credential probe returns Synergy's real "Invalid user id or password" error rather than `UPD5304`), so a valid student ID and password should load real grades; sign in with your own account to confirm. If the proxy is unavailable, the app keeps the last successful grades and shows a retry notice.
+The connection and relay are tested with synthetic responses. A healthy Worker confirms deployment and secret presence, not successful MCPS authentication. Sign in with your own account to confirm live grades. If the relay is unavailable, the app keeps the last successful grades and shows a retry notice.
 
 References: [GradeDurian](https://github.com/btdpass/GradeDurian) (design reference), [studentvue.js](https://github.com/jshap06/studentvue.js/tree/unified) (protocol/field reference), [MCPS StudentVUE service description](https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx?WSDL). The supplied [gradebook-api](https://github.com/team-llambda/gradebook-api) wraps a separate third-party service and is not a dependency. This implementation does not copy GradeDurian's source or assets.
 
@@ -77,6 +77,8 @@ Set these in Render's Environment panel:
 | `CANVAS_ACCESS_TOKEN` | Your own Canvas token; enter directly in Render                                                                                 |
 | `APP_PASSWORD`        | A separate strong app passphrase, at least 8 characters                                                                         |
 | `APP_SECRET`          | Optional. 32+ random characters that sign app sessions and encrypt saved StudentVUE sign-ins, in addition to `APP_PASSWORD`.   |
+| `STUDENTVUE_RELAY_URL` | `https://studentvue-relay.ezsmile331.workers.dev/fulfillAxios` |
+| `STUDENTVUE_RELAY_TOKEN` | The same private value as the Worker's `RELAY_TOKEN` secret. Required for live grades. |
 | `APP_ORIGIN`          | Optional for the default Render address; required for a custom domain. Use the exact HTTPS app origin without a trailing slash. |
 
 The backend automatically uses `RENDER_EXTERNAL_URL` for the standard Render address and listens on Render's assigned `PORT`. It serves the React build and `/api` from the same origin. Do not prefix secrets with `VITE_`.

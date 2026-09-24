@@ -16,6 +16,10 @@ const app = await buildApp({
   password: process.env.APP_PASSWORD,
   // GRADEBOOK_SECRET is the earlier name for APP_SECRET and still works.
   secret: process.env.APP_SECRET || process.env.GRADEBOOK_SECRET,
+  studentvueRelay: {
+    url: process.env.STUDENTVUE_RELAY_URL,
+    token: process.env.STUDENTVUE_RELAY_TOKEN,
+  },
   origin:
     process.env.APP_ORIGIN ||
     process.env.RENDER_EXTERNAL_URL ||
