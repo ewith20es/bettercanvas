@@ -72,9 +72,12 @@ describe("private StudentVUE relay", () => {
   it("forwards both read methods only to MCPS without forwarding relay credentials", async () => {
     const fetcher = vi
       .fn()
-      .mockImplementation(() =>
-        Promise.resolve(new Response("<soap>synthetic response</soap>")),
-      );
+      .mockImplementation((_url: string, init: RequestInit) => {
+        // Cloudflare's runtime supports only manual/follow, unlike Node fetch.
+        if (init.redirect === "error")
+          throw new TypeError("Invalid redirect value");
+        return Promise.resolve(new Response("<soap>synthetic response</soap>"));
+      });
     vi.stubGlobal("fetch", fetcher);
     for (const method of ["Gradebook", "StudentClassList"]) {
       const xml = payload.xml.replace("Gradebook", method);
@@ -89,7 +92,7 @@ describe("private StudentVUE relay", () => {
         expect.objectContaining({
           body: xml,
           method: "POST",
-          redirect: "error",
+          redirect: "manual",
         }),
       );
       expect(JSON.stringify(fetcher.mock.lastCall)).not.toContain(
@@ -106,7 +109,28 @@ describe("private StudentVUE relay", () => {
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({
       status: false,
-      message: "upstream unavailable",
+      code: "UPSTREAM_NETWORK",
     });
+  });
+  it("rejects redirects without forwarding credentials to their destination", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response("private response", {
+        status: 302,
+        headers: { location: "https://different.example/" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    const response = await worker.fetch(request(), env);
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      status: false,
+      code: "UPSTREAM_HTTP",
+      upstreamStatus: 302,
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher).toHaveBeenCalledWith(
+      payload.url,
+      expect.objectContaining({ redirect: "manual" }),
+    );
   });
 });

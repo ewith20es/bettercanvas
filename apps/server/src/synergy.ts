@@ -148,7 +148,7 @@ export function parseGradebook(
     const message = attr(node(payload.RT_ERROR), "ERROR_MESSAGE");
     if (/\bUPD5304(?:-\d+)?\b/i.test(message))
       throw new SynergyError(
-        "StudentVUE's grade service is temporarily unavailable (UPD5304). Please try again in a little while.",
+        "MCPS is rejecting this app's StudentVUE API request (UPD5304). The official StudentVUE website may still work.",
         503,
       );
     if (
@@ -400,10 +400,11 @@ export class SynergyClient implements GradebookClient {
           503,
         );
       }
-      if (!response.ok || !response.body)
-        throw new SynergyError(
-          "StudentVUE is unavailable right now. Please try again later.",
+      const relayFailure = () =>
+        new SynergyError(
+          `The StudentVUE relay returned HTTP ${response.status}. This does not mean the official StudentVUE website is down.`,
         );
+      if (!response.body) throw relayFailure();
       const reader = response.body.getReader();
       const chunks: Uint8Array[] = [];
       let size = 0;
@@ -412,8 +413,9 @@ export class SynergyClient implements GradebookClient {
           const { done, value } = await reader.read();
           if (done) break;
           size += value.byteLength;
-          if (size > maxBytes) {
+          if (size > (response.ok ? maxBytes : 8192)) {
             await reader.cancel();
+            if (!response.ok) throw relayFailure();
             throw new SynergyError(
               "This StudentVUE response is too large to display.",
             );
@@ -423,13 +425,36 @@ export class SynergyClient implements GradebookClient {
       } finally {
         reader.releaseLock();
       }
-      let relayed: { status?: unknown; response?: unknown };
+      let relayed: {
+        status?: unknown;
+        response?: unknown;
+        code?: unknown;
+        upstreamStatus?: unknown;
+      };
       try {
         relayed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       } catch {
+        if (!response.ok) throw relayFailure();
         throw new SynergyError(
           "StudentVUE returned an unreadable response. Please try again.",
         );
+      }
+      if (!response.ok) {
+        if (relayed?.code === "UPSTREAM_NETWORK")
+          throw new SynergyError(
+            "Your StudentVUE relay could not reach MCPS's grade API. The official StudentVUE website may still work.",
+          );
+        if (
+          relayed?.code === "UPSTREAM_HTTP" &&
+          typeof relayed.upstreamStatus === "number" &&
+          Number.isInteger(relayed.upstreamStatus) &&
+          relayed.upstreamStatus >= 100 &&
+          relayed.upstreamStatus <= 599
+        )
+          throw new SynergyError(
+            `MCPS returned HTTP ${relayed.upstreamStatus} to your StudentVUE relay. The official StudentVUE website may still work.`,
+          );
+        throw relayFailure();
       }
       // The proxy reports transport failures as { status: false }; a real
       // Synergy reply (including RT_ERROR) comes back as a `response` string.

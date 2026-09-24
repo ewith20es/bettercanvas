@@ -331,6 +331,51 @@ describe("Synergy gradebook normalization", () => {
     );
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
+  it.each([
+    [
+      JSON.stringify({
+        status: false,
+        code: "UPSTREAM_NETWORK",
+        message: "private detail",
+      }),
+      "relay could not reach MCPS",
+    ],
+    [
+      JSON.stringify({
+        status: false,
+        code: "UPSTREAM_HTTP",
+        upstreamStatus: 503,
+        message: "private detail",
+      }),
+      "MCPS returned HTTP 503",
+    ],
+    ["<html>private detail</html>", "relay returned HTTP 502"],
+    [
+      JSON.stringify({
+        code: "UPSTREAM_HTTP",
+        upstreamStatus: "private detail",
+      }),
+      "relay returned HTTP 502",
+    ],
+    ["private detail".repeat(1000), "relay returned HTTP 502"],
+  ])(
+    "distinguishes a relay failure without exposing its body",
+    async (body, message) => {
+      const client = new SynergyClient(
+        "student",
+        "secret",
+        vi
+          .fn<typeof fetch>()
+          .mockImplementation(async () => new Response(body, { status: 502 })),
+        {
+          url: "https://relay.example/fulfillAxios",
+          token: "test",
+        },
+      );
+      await expect(client.gradebook()).rejects.toThrow(message);
+      await expect(client.gradebook()).rejects.not.toThrow("private detail");
+    },
+  );
 });
 
 describe("what-if estimates", () => {

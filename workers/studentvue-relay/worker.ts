@@ -86,7 +86,9 @@ export default {
     try {
       const upstream = await fetch(DISTRICT, {
         method: "POST",
-        redirect: "error",
+        // workerd rejects redirect: "error" before making a request. Manual
+        // returns 3xx for the non-ok check below without forwarding credentials.
+        redirect: "manual",
         signal: AbortSignal.timeout(20000),
         headers: {
           "content-type": "text/xml; charset=utf-8",
@@ -96,14 +98,21 @@ export default {
       });
       if (!upstream.ok) {
         await upstream.body?.cancel();
-        return json({ status: false, message: "upstream unavailable" }, 502);
+        return json(
+          {
+            status: false,
+            code: "UPSTREAM_HTTP",
+            upstreamStatus: upstream.status,
+          },
+          502,
+        );
       }
       return json({
         status: true,
         response: await readBounded(upstream.body, MAX_RESPONSE_BYTES),
       });
     } catch {
-      return json({ status: false, message: "upstream unavailable" }, 502);
+      return json({ status: false, code: "UPSTREAM_NETWORK" }, 502);
     }
   },
 };
