@@ -12,7 +12,12 @@ import { CanvasClient } from "./canvas";
 import { registerGradebook, type SynergyFactory } from "./gradebook-routes";
 import { rememberKey } from "./remember";
 import { sessionAge, SessionStore } from "./sessions";
-import { SynergyClient, SynergyError, type SynergyRelay } from "./synergy";
+import {
+  SynergyClient,
+  SynergyError,
+  type SynergyRelay,
+  type GradebookClient,
+} from "./synergy";
 
 export type Config = {
   origin: string;
@@ -28,6 +33,7 @@ export async function buildApp(
   config: Config,
   client?: Pick<CanvasClient, "sync">,
   synergyFactory?: SynergyFactory,
+  webFactory?: (cookie: string) => GradebookClient,
 ) {
   if (config.token && (!config.password || config.password.length < 8))
     throw new Error(
@@ -127,6 +133,7 @@ export async function buildApp(
       ((u, p) => new SynergyClient(u, p, fetch, config.studentvueRelay)),
     rememberKey: rememberKey(secret, config.password),
     secure: config.production,
+    webFactory,
   });
   app.get("/api/health", async () => ({ ok: true }));
   app.get("/api/bootstrap", async (req, reply) => {

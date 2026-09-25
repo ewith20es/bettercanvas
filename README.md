@@ -28,15 +28,27 @@ MCPS token permission and actual account responses still need to be verified usi
 
 ## Connect StudentVUE / Synergy grades
 
-Better Canvas uses your own authenticated Cloudflare Worker to relay StudentVUE requests. Configure `STUDENTVUE_RELAY_URL` and `STUDENTVUE_RELAY_TOKEN` on the server; there is no fallback to a third-party proxy. See [Worker setup](workers/studentvue-relay/README.md). MCPS may return `UPD5304` ("update your app"); hosting a relay does not guarantee that MCPS accepts the request, and that error is shown separately from a relay outage.
+The student-ID/password connection uses your own authenticated Cloudflare Worker to relay StudentVUE requests. Configure `STUDENTVUE_RELAY_URL` and `STUDENTVUE_RELAY_TOKEN` on the server; there is no fallback to a third-party proxy. See [Worker setup](workers/studentvue-relay/README.md). MCPS may return `UPD5304` ("update your app"); hosting a relay does not guarantee that MCPS accepts the request, and that error is shown separately from a relay outage.
 
-To connect:
+### Browser-session connection (beta)
+
+For MCPS Google sign-in, the connection form also offers **Browser session (Google sign-in)**. Sign in to the official StudentVUE website yourself, then copy the **Cookie request header** from its `PXP2_Gradebook.aspx` request using your personal computer's browser Network tools. Paste it only into the masked field in your private Better Canvas app. Do not paste session cookies in chat, commits, logs, or public frontend configuration. This must be your own MCPS StudentVUE cookie, never a Google cookie.
+
+This path reads the authenticated **PXP2 website**, not the rejected SOAP API. It uses the fixed MCPS origin and the website's read-only `Gradebook_SchoolClasses` / `Gradebook_ClassDetails` operations. Cookies are held in a separate server-memory jar for each signed-in Better Canvas session; returned cookies are updated, redirects are not followed, and cookies are never returned to frontend scripts or saved in the remembered-password cookie. No additional Render or Cloudflare variables are needed. Disconnect, app logout, a one-hour connection expiry, or a server restart clears the jar. An expired MCPS session requires copying a fresh cookie; this does **not** automate or renew Google sign-in. It also does not enable cookie copying on a managed device that restricts browser tools.
+
+The beta parses course percentages, marks and assignment scores. Category totals/weights, the schedule countdown and grading-period dates are not supported in this mode. Unknown dates and scores remain unknown. Unsupported or changed portal markup produces an error and does not replace the previous snapshot with an empty or partial result. Only one school's gradebook is supported. Parser/transport/authentication tests use synthetic data; **live account compatibility has not yet been verified**.
+
+Protocol references: the district's public [`PXP2_Gradebook.js`](https://md-mcps-psv.edupoint.com/js/PXP/PXP2_Gradebook.js), the older [Grade Melon backend](https://github.com/Jshap06/SynergyAltBackend) (cookie-based web access), and [Last Bell](https://github.com/noestudios/lastbell) (PXP2 fragment field descriptions). No third-party proxy is used by this connection.
+
+### Student-ID/password connection
+
+To connect with the mobile API (if MCPS accepts it):
 
 1. Set `APP_PASSWORD` to at least 8 characters and restart the server. This protects the connection even if you are using Canvas demo mode.
 2. Sign in to Better Canvas, open **Gradebook**, and enter your MCPS student ID and StudentVUE password directly in the app. Do not send credentials in chat or commit them to GitHub.
 3. Choose a grading period and select a course to see its reported grade, categories, assignments, points, and teacher notes. Courses appear in StudentVUE period order. Use **Refresh grades** to check again.
 
-All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. The backend builds the StudentVUE SOAP request for `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` and sends it over HTTPS through your configured Worker to Synergy. StudentVUE credentials pass through your Render server and Cloudflare Worker in transit. Canvas remains the source for the separate assignment/submission views.
+All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. For the student-ID/password method, the backend builds the StudentVUE SOAP request for `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` and sends it over HTTPS through your configured Worker to Synergy. StudentVUE credentials pass through your Render server and Cloudflare Worker in transit. Canvas remains the source for the separate assignment/submission views.
 
 StudentVUE requires credentials with each request. The live connection is held in server memory for **one hour**, scoped to your signed-in app session; a cleanup timer removes expired connections within 30 seconds.
 
@@ -69,17 +81,17 @@ Push this repository to your GitHub repository, then connect it to a Render **We
 
 Set these in Render's Environment panel:
 
-| Variable              | Value                                                                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`            | `production`                                                                                                                    |
-| `NODE_VERSION`        | `24.18.0`                                                                                                                       |
-| `CANVAS_BASE_URL`     | `https://mcpsmd.instructure.com`                                                                                                |
-| `CANVAS_ACCESS_TOKEN` | Your own Canvas token; enter directly in Render                                                                                 |
-| `APP_PASSWORD`        | A separate strong app passphrase, at least 8 characters                                                                         |
-| `APP_SECRET`          | Optional. 32+ random characters that sign app sessions and encrypt saved StudentVUE sign-ins, in addition to `APP_PASSWORD`.   |
-| `STUDENTVUE_RELAY_URL` | `https://studentvue-relay.ezsmile331.workers.dev/fulfillAxios` |
-| `STUDENTVUE_RELAY_TOKEN` | The same private value as the Worker's `RELAY_TOKEN` secret. Required for live grades. |
-| `APP_ORIGIN`          | Optional for the default Render address; required for a custom domain. Use the exact HTTPS app origin without a trailing slash. |
+| Variable                 | Value                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`               | `production`                                                                                                                    |
+| `NODE_VERSION`           | `24.18.0`                                                                                                                       |
+| `CANVAS_BASE_URL`        | `https://mcpsmd.instructure.com`                                                                                                |
+| `CANVAS_ACCESS_TOKEN`    | Your own Canvas token; enter directly in Render                                                                                 |
+| `APP_PASSWORD`           | A separate strong app passphrase, at least 8 characters                                                                         |
+| `APP_SECRET`             | Optional. 32+ random characters that sign app sessions and encrypt saved StudentVUE sign-ins, in addition to `APP_PASSWORD`.    |
+| `STUDENTVUE_RELAY_URL`   | `https://studentvue-relay.ezsmile331.workers.dev/fulfillAxios`                                                                  |
+| `STUDENTVUE_RELAY_TOKEN` | The same private value as the Worker's `RELAY_TOKEN` secret. Required for the student-ID/password method only.                  |
+| `APP_ORIGIN`             | Optional for the default Render address; required for a custom domain. Use the exact HTTPS app origin without a trailing slash. |
 
 The backend automatically uses `RENDER_EXTERNAL_URL` for the standard Render address and listens on Render's assigned `PORT`. It serves the React build and `/api` from the same origin. Do not prefix secrets with `VITE_`.
 

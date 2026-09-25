@@ -1008,3 +1008,18 @@
 .gb-connect-form .gb-remember input {
   border-radius: 4px;
 }
+.gb-session-help {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 1rem;
+}
+.gb-session-help summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.gb-session-help ol {
+  padding-left: 1.4rem;
+}
+.gb-session-help li + li {
+  margin-top: 0.5rem;
+}
