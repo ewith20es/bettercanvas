@@ -202,6 +202,42 @@ describe("StudentVUE browser-session client", () => {
     ).toBe("term-2");
     await expect(client.gradebook(45)).rejects.toThrow(/not available/);
   });
+  it.each([
+    ["Gradebook_RichContentClassDetails", "courseContent"],
+    ["Gradebook_Posts", "post"],
+    ["Gradebook_SchoolClasses", "subject"],
+    ["UnexpectedControl", "unknown"],
+  ])(
+    "loads assignment grades when a course opens %s",
+    async (control, viewName) => {
+      const fetcher = transport();
+      fetcher.mockResolvedValueOnce(new Response(mainPage));
+      fetcher.mockResolvedValueOnce(
+        controlReply(
+          overview()
+            .replaceAll("Gradebook_ClassDetails", control)
+            .replaceAll(
+              '"classID":101',
+              `"classID":101,"viewName":"${viewName}"`,
+            ),
+        ),
+      );
+      const grades = await new StudentVueWebClient(
+        "session=fake",
+        fetcher,
+      ).gradebook();
+      expect(grades.courses[0].marks[0].percent).toBe(93.83);
+      const request = JSON.parse(
+        String(fetcher.mock.calls[2][1]?.body),
+      ).request;
+      expect(request.control).toBe("Gradebook_ClassDetails");
+      expect(request.parameters).toMatchObject({
+        classID: 101,
+        viewName: "assignment",
+      });
+      expect(fetcher).toHaveBeenCalledTimes(3);
+    },
+  );
   it("retains rotated same-district cookies and rejects cookies scoped to another site", async () => {
     const fetcher = transport();
     fetcher.mockImplementationOnce(async () => {
@@ -219,14 +255,12 @@ describe("StudentVUE browser-session client", () => {
   it.each([302, 401, 403])(
     "treats HTTP %s as an expired session and never follows redirects",
     async (status) => {
-      const fetcher = vi
-        .fn<typeof fetch>()
-        .mockResolvedValue(
-          new Response("private response", {
-            status,
-            headers: { Location: "https://accounts.google.com/" },
-          }),
-        );
+      const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+        new Response("private response", {
+          status,
+          headers: { Location: "https://accounts.google.com/" },
+        }),
+      );
       await expect(
         new StudentVueWebClient("session=fake", fetcher).gradebook(),
       ).rejects.toMatchObject({ statusCode: 422 });
@@ -277,12 +311,10 @@ describe("private browser-session connection route", () => {
     ).gradebook();
     const client = {
       gradebook: vi.fn().mockResolvedValue(snapshot),
-      schedule: vi
-        .fn()
-        .mockResolvedValue({
-          fetchedAt: new Date().toISOString(),
-          meetings: [],
-        }),
+      schedule: vi.fn().mockResolvedValue({
+        fetchedAt: new Date().toISOString(),
+        meetings: [],
+      }),
       dispose: vi.fn(),
     };
     const factory = vi.fn().mockReturnValue(client);

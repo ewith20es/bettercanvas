@@ -150,11 +150,9 @@ export function parseWebOverview(html: string) {
     } catch {
       throw unreadable();
     }
-    const control = string(record(focusData.LoadParams).ControlName);
-    if (control && control !== "Gradebook_ClassDetails")
-      throw new SynergyError(
-        "This StudentVUE course uses a gradebook format the browser-session connection does not support yet.",
-      );
+    // LoadParams selects the website's opening view (posts, course content,
+    // subjects, etc.), not the course's grading format. We never execute this
+    // control name; load the fixed assignment view using the course focus.
     const focus = record(focusData.FocusArgs),
       id = string(focus.classID);
     if (!id || id === "-1" || seen.has(id)) return;
@@ -493,7 +491,7 @@ export class StudentVueWebClient implements GradebookClient {
       const mark = parseWebDetails(
         await this.control(
           "Gradebook_ClassDetails",
-          { ...focus, ...course.focus },
+          { ...focus, ...course.focus, viewName: "assignment" },
           agu,
           signal,
         ),
