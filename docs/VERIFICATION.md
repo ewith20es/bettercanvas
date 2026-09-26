@@ -2,6 +2,9 @@
 
 Checked September 11, 2026.
 
+Historical snapshot only. See [PROJECT.md](../PROJECT.md) and
+[CHANGELOG.md](../CHANGELOG.md) for newer verification and deployment records.
+
 - Production build and TypeScript checks passed.
 - All 21 automated tests passed: status edge cases, school-timezone boundaries/DST, Canvas pagination and retries, safe pagination origins, partial-course preservation, authentication, origin checks, session invalidation, and login rate limiting.
 - The compiled server started successfully with `npm start` and served the React app, API, and PWA icons. Private API responses returned `Cache-Control: no-store, private`.

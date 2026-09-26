@@ -41,6 +41,7 @@ import {
   type Status,
 } from "../../../packages/domain/src";
 import type { Preferences } from "./data";
+import { TokenExpirySettings } from "./TokenExpiry";
 import {
   coursePeriod,
   schedule,
@@ -978,6 +979,11 @@ export function Settings(
               Canvas and hosting settings.
             </p>
           )}
+          <TokenExpirySettings
+            date={prefs.canvasTokenExpiry}
+            now={props.now}
+            save={(canvasTokenExpiry) => updatePrefs({ canvasTokenExpiry })}
+          />
         </div>
       </section>
       <section className="settings-card">

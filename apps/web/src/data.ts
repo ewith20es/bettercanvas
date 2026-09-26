@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import type { Snapshot } from "../../../packages/domain/src";
+import { DEFAULT_TOKEN_EXPIRY } from "./token-expiry";
 export type Preferences = {
   hidden: string[];
   hiddenAssignments: string[];
@@ -10,6 +11,7 @@ export type Preferences = {
   offline: boolean;
   courseView: "list" | "gallery";
   coursePeriods: Record<string, number>;
+  canvasTokenExpiry: string;
 };
 export const defaults: Preferences = {
   hidden: [],
@@ -21,6 +23,7 @@ export const defaults: Preferences = {
   offline: false,
   courseView: "gallery",
   coursePeriods: {},
+  canvasTokenExpiry: DEFAULT_TOKEN_EXPIRY,
 };
 const db = new Dexie("bettercanvas-v1") as Dexie & {
   snapshots: Table<{ key: string; value: Snapshot }>;

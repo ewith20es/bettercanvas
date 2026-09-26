@@ -26,6 +26,18 @@ The app never requests or stores your Canvas password. If a token is configured 
 
 MCPS token permission and actual account responses still need to be verified using your own account. Generic Canvas API support does not guarantee a school permits personal tokens.
 
+### Canvas key expiration reminder
+
+The sidebar and Settings → Canvas connection show days until the date you enter.
+The initial date is December 10, 2026 at 12 AM Eastern (the start of December 10).
+Use **Key expiration date → Save date** after replacing a key. The reminder is
+saved per account in the current browser; set it separately on each device. It
+does not verify or extend the actual Canvas token expiration.
+
+To replace the key, edit `CANVAS_ACCESS_TOKEN` in Render → Environment and choose
+**Save and deploy**, then wait for the deployment to finish. Update the reminder
+date in Better Canvas afterward. No frontend key or extra environment variable is needed.
+
 ## Connect StudentVUE / Synergy grades
 
 The student-ID/password connection uses your own authenticated Cloudflare Worker to relay StudentVUE requests. Configure `STUDENTVUE_RELAY_URL` and `STUDENTVUE_RELAY_TOKEN` on the server; there is no fallback to a third-party proxy. See [Worker setup](workers/studentvue-relay/README.md). MCPS may return `UPD5304` ("update your app"); hosting a relay does not guarantee that MCPS accepts the request, and that error is shown separately from a relay outage.

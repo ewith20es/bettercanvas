@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { Gradebook } from "./Gradebook";
+import { TokenExpiryReminder } from "./TokenExpiry";
 import type { Assignment, Snapshot } from "../../../packages/domain/src";
 import {
   accountKey,
@@ -332,6 +333,7 @@ export default function App() {
           <ShieldCheck size={17} />
           <span>Your personal Canvas companion</span>
         </div>
+        <TokenExpiryReminder date={prefs.canvasTokenExpiry} now={now} />
         <div className="sidebar-footer">
           <span className="avatar">{data.account.name.slice(0, 1)}</span>
           <div>
