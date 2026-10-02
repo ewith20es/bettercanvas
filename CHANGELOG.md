@@ -4,6 +4,28 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-01 — Past-due Missing and submitted-in-person marks
+
+- Past-due work without a submission or grade now shows Missing, including paper,
+  external-tool and unknown submission statuses. Canvas missing flags stay distinct
+  from inferred deadlines; excused and already submitted/graded work are not inferred missing.
+- Added reversible checkmarks on rows and in details for Submitted in person.
+  Stored in per-account browser preferences; no Canvas writes or invented timestamps.
+  Missing counts, Home attention, course counts, badges and Submitted filtering
+  respect the personal mark. Undo from Submitted/All restores the Canvas-derived status.
+- Verification: 136 tests passed, including new inference/override cases; typecheck
+  and production build passed. Local changes only, not deployed.
+
+## 2026-09-28 — Assignment date groups and tab sorting
+
+- Upcoming now groups assignments by due date in the selected timezone, with full
+  date headings, Today/Tomorrow labels, counts, and horizontal dividers.
+- Submitted, Graded, and Hidden default to latest due date first; other tabs default
+  to earliest first. Switching tabs resets the sort to that tab's default. Explicit
+  sort choices still work; Upcoming name/course sorting operates within each date.
+- Clear filters retains the current tab and restores its default sort.
+- Typecheck and production build passed. Changes saved locally, not deployed.
+
 ## 2026-09-25 — Canvas key expiration reminder
 
 - Added a days-left reminder directly above the desktop sidebar profile and in

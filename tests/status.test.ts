@@ -24,7 +24,7 @@ const base: Assignment = {
 describe("student-facing statuses", () => {
   it("distinguishes an inferred overdue deadline from Canvas missing", () => {
     expect(statusOf(base, now)).toMatchObject({
-      label: "Not submitted",
+      label: "Missing",
       overdue: true,
       missing: false,
       needsWork: true,
@@ -96,18 +96,20 @@ describe("student-facing statuses", () => {
     expect(statusOf(a, now).grading).toBe("Previous attempt graded");
     expect(attentionRank(a, now)).toBe(0);
   });
-  it("never infers non-submission from paper or external tools", () => {
+  it("includes past-due paper and external work without claiming Canvas marked it missing", () => {
     for (const type of ["on_paper", "none", "external_tool"])
       expect(statusOf({ ...base, types: [type] }, now)).toMatchObject({
-        overdue: false,
+        overdue: true,
+        missing: false,
+        label: "Missing",
         check: true,
       });
   });
   it("does not turn missing API data into a submission fact", () => {
     expect(statusOf({ ...base, submission: null }, now)).toMatchObject({
-      label: "Status unavailable",
+      label: "Missing",
       submitted: false,
-      overdue: false,
+      overdue: true,
       check: true,
     });
   });
@@ -121,6 +123,18 @@ describe("student-facing statuses", () => {
         now,
       ),
     ).toMatchObject({ label: "Excused", needsWork: false });
+  });
+  it("lets a personal in-person mark clear Missing without mutating Canvas data", () => {
+    const a = { ...base, submission: { ...emptySubmission, missing: true, redo: true } };
+    expect(statusOf(a, now, true)).toMatchObject({ label: "Submitted in person", submitted: true, missing: false, overdue: false, needsWork: false });
+    expect(attentionRank(a, now, true)).toBe(9);
+    expect(a.submission.missing).toBe(true);
+    expect(statusOf(a, now, false).missing).toBe(true);
+    expect(statusOf(a, now, false).needsWork).toBe(true);
+  });
+  it("does not infer missing for graded paper work or future paper deadlines", () => {
+    expect(statusOf({ ...base, types: ["on_paper"], submission: { ...emptySubmission, state: "graded", score: 9 } }, now).overdue).toBe(false);
+    expect(statusOf({ ...base, types: ["on_paper"], dueAt: "2026-10-10T12:00:00Z" }, now).overdue).toBe(false);
   });
   it("supports pending review and undated assignments", () => {
     expect(

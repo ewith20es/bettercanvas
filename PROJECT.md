@@ -1,6 +1,6 @@
 # Better Canvas — current project context
 
-Last updated: **September 25, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
+Last updated: **October 1, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
 and [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## Purpose and stack
@@ -22,6 +22,18 @@ optional Canvas offline storage. One Render web service serves frontend and API.
   and Render state before treating this dated snapshot as current.
 
 ## Current work and verification
+
+October 1 local change: past-due, unsubmitted, ungraded work (including paper,
+external tools and unknown submission data) shows Missing and counts toward its
+indicator. Per-assignment checkmarks save a reversible Submitted in person record
+in per-account browser preferences. These clear Missing/attention locally without
+changing Canvas data; Submitted/All allow undo. 136 tests and production build
+passed. Not deployed.
+
+September 28 local change: Upcoming assignments have due-date groups/dividers in
+the selected timezone. Submitted, Graded, and Hidden default to latest due date first;
+other tabs default to earliest. Changing tabs resets the sort. Name/course sorting
+in Upcoming is within each date. Typecheck and production build passed; not deployed.
 
 Local addition: Canvas key countdown above the sidebar profile and editable in
 Settings. Defaults to December 10, 2026 at midnight Eastern. The reminder date is
