@@ -40,7 +40,7 @@ date in Better Canvas afterward. No frontend key or extra environment variable i
 
 ## Connect StudentVUE / Synergy grades
 
-The student-ID/password connection uses your own authenticated Cloudflare Worker to relay StudentVUE requests. Configure `STUDENTVUE_RELAY_URL` and `STUDENTVUE_RELAY_TOKEN` on the server; there is no fallback to a third-party proxy. See [Worker setup](workers/studentvue-relay/README.md). MCPS may return `UPD5304` ("update your app"); hosting a relay does not guarantee that MCPS accepts the request, and that error is shown separately from a relay outage.
+The student-ID/password connection uses the current StudentVUE mobile JSON API directly at the official MCPS origin, `https://md-mcps-psv.edupoint.com`. It signs in as a **student** with `AttemptLogin`, then uses the returned session token to read grades. No Cloudflare relay or third-party proxy is needed. The older SOAP API returned `UPD5304` ("update your app") and is no longer the app's connection path. Canvas and StudentVUE have separate sign-ins; an open Canvas session does not grant Synergy access.
 
 ### Browser-session connection (beta)
 
@@ -54,15 +54,15 @@ Protocol references: the district's public [`PXP2_Gradebook.js`](https://md-mcps
 
 ### Student-ID/password connection
 
-To connect with the mobile API (if MCPS accepts it):
+To connect with the mobile API:
 
 1. Set `APP_PASSWORD` to at least 8 characters and restart the server. This protects the connection even if you are using Canvas demo mode.
 2. Sign in to Better Canvas, open **Gradebook**, and enter your MCPS student ID and StudentVUE password directly in the app. Do not send credentials in chat or commit them to GitHub.
 3. Choose a grading period and select a course to see its reported grade, categories, assignments, points, and teacher notes. Courses appear in StudentVUE period order. Use **Refresh grades** to check again.
 
-All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. For the student-ID/password method, the backend builds the StudentVUE SOAP request for `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` and sends it over HTTPS through your configured Worker to Synergy. StudentVUE credentials pass through your Render server and Cloudflare Worker in transit. Canvas remains the source for the separate assignment/submission views.
+All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. Your Render backend sends the StudentVUE sign-in only to MCPS over HTTPS, then requests `Gradebook` under `/api/v1/mobile/PXPWebServices` with a bearer token. Requests address the student's own record and selected grading period. Canvas remains the source for the separate assignment/submission views. The mobile connection currently leaves the class countdown unavailable; it does not invent a bell schedule.
 
-StudentVUE requires credentials with each request. The live connection is held in server memory for **one hour**, scoped to your signed-in app session; a cleanup timer removes expired connections within 30 seconds.
+The live connection, credentials and MCPS session token are held in server memory for **one hour**, scoped to your signed-in app session; a cleanup timer removes expired connections within 30 seconds. The token is used for grade requests and never returned to the browser. Disconnecting or signing out clears it and cancels pending requests.
 
 **Keep me signed in** (on by default in the connect form) saves your StudentVUE sign-in so you do not retype it when you reopen the app, after the hour ends, or after Render restarts. The student ID and password are encrypted with AES-256-GCM using a server-only key and stored in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie that is sent only to `/api/gradebook` and expires after 30 days. Page scripts cannot read it, and it is useless without a signed-in Better Canvas session. The app reconnects automatically on launch and renews the connection shortly before each hour ends. Disconnecting StudentVUE, signing out of Better Canvas, or StudentVUE rejecting the saved password deletes it. Untick the box to keep the old memory-only behavior.
 
@@ -72,7 +72,7 @@ The page uses GradeDurian-inspired grade cards, progress bars, category breakdow
 
 Use **Preview with sample grades** to explore without connecting. Samples are always labeled and are never substituted for a failed live request. Gradebook updates are manual, with a 20-second server cache to avoid duplicate requests; this page does not poll StudentVUE. On a failed update, the last successful grades remain with their timestamp and an error notice.
 
-The connection and relay are tested with synthetic responses. A healthy Worker confirms deployment and secret presence, not successful MCPS authentication. Sign in with your own account to confirm live grades. If the relay is unavailable, the app keeps the last successful grades and shows a retry notice.
+The mobile connection is tested with synthetic responses. On October 3, 2026, the official MCPS `AttemptLogin` endpoint returned HTTP 401 to an anonymous POST using the documented student request, confirming the endpoint is present. This does **not** verify a successful live student login; sign in with your own account in the app to confirm. Failed refreshes keep the last successful grades unless MCPS explicitly rejects the sign-in. The primary protocol and JSON-field reference is [gradebook-mcp's mobile client](https://github.com/songsterq/gradebook-mcp/tree/main/src/lib/parentvue); its published live verification was for another district's ParentVUE account, not MCPS StudentVUE.
 
 References: [GradeDurian](https://github.com/btdpass/GradeDurian) (design reference), [studentvue.js](https://github.com/jshap06/studentvue.js/tree/unified) (protocol/field reference), [MCPS StudentVUE service description](https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx?WSDL). The supplied [gradebook-api](https://github.com/team-llambda/gradebook-api) wraps a separate third-party service and is not a dependency. This implementation does not copy GradeDurian's source or assets.
 
@@ -83,7 +83,7 @@ Push this repository to your GitHub repository, then connect it to a Render **We
 | Setting           | Value                                   |
 | ----------------- | --------------------------------------- |
 | Language          | Node                                    |
-| Branch            | main                                    |
+| Branch            | claude/gradebook-synergy-integration-2fbac6 |
 | Region            | Virginia                                |
 | Root directory    | Leave blank                             |
 | Build command     | `npm ci --include=dev && npm run build` |
@@ -101,8 +101,6 @@ Set these in Render's Environment panel:
 | `CANVAS_ACCESS_TOKEN`    | Your own Canvas token; enter directly in Render                                                                                 |
 | `APP_PASSWORD`           | A separate strong app passphrase, at least 8 characters                                                                         |
 | `APP_SECRET`             | Optional. 32+ random characters that sign app sessions and encrypt saved StudentVUE sign-ins, in addition to `APP_PASSWORD`.    |
-| `STUDENTVUE_RELAY_URL`   | `https://studentvue-relay.ezsmile331.workers.dev/fulfillAxios`                                                                  |
-| `STUDENTVUE_RELAY_TOKEN` | The same private value as the Worker's `RELAY_TOKEN` secret. Required for the student-ID/password method only.                  |
 | `APP_ORIGIN`             | Optional for the default Render address; required for a custom domain. Use the exact HTTPS app origin without a trailing slash. |
 
 The backend automatically uses `RENDER_EXTERNAL_URL` for the standard Render address and listens on Render's assigned `PORT`. It serves the React build and `/api` from the same origin. Do not prefix secrets with `VITE_`.
@@ -151,7 +149,7 @@ Regenerate the committed PWA icons after changing the favicon with `node scripts
 
 ```text
 apps/web/             React pages, styles, Dexie cache, Vite/PWA configuration
-apps/server/src/      App authentication, Canvas sync, proxied Synergy gradebook client
+apps/server/src/      App authentication, Canvas sync, direct StudentVUE mobile client and website beta
 packages/domain/src/ Shared data types, status rules, dates, synthetic demo data
 tests/               Domain and backend regression tests
 scripts/             PWA icon generation

@@ -1,6 +1,6 @@
 # StudentVUE connection handoff
 
-Updated September 25, 2026. This records implementation evidence and unresolved
+Updated October 3, 2026. This records implementation evidence and unresolved
 work, not a claim that every connection works with a live account.
 
 ## User requirements and evidence
@@ -16,12 +16,48 @@ work, not a claim that every connection works with a live account.
 
 ## Implemented paths
 
-### SOAP through the owner's Worker
+### Current mobile JSON API (October 3, 2026)
 
-`synergy.ts` sends the mobile API request through the configured authenticated
+New primary protocol evidence comes from
+[gradebook-mcp's client](https://github.com/songsterq/gradebook-mcp/blob/main/src/lib/parentvue/src/client.ts)
+and [parser/tests](https://github.com/songsterq/gradebook-mcp/tree/main/src/lib/parentvue/src).
+Its published live verification is ParentVUE in another district; it does not prove
+MCPS student account support.
+
+MCPS exposes the same official endpoint: a GET of
+`/api/v1/mobile/PXPWebServices/AttemptLogin` returns HTTP 405 JSON, and an anonymous
+POST with the student request envelope returns HTTP 401. No real or invented
+account credentials were sent during this probe. This is new evidence of a distinct
+API, not an attempted permutation of the retired SOAP service.
+
+`studentvue-mobile.ts` now implements:
+
+- `POST AttemptLogin` with HTTPS Basic authentication and inner
+  `{userID:null,password:null,userType:"student"}`.
+- Every request wraps its inner JSON in
+  `{arguments:{request:JSON.stringify(inner)}}`.
+- `POST Gradebook` with the returned `access_token` as a bearer token and inner
+  `{reportPeriod:index,childIntID:0,languageCode:"en"}`. No parent-account fallback.
+- Bounded responses/timeouts, fixed MCPS origin, rejected redirects, per-connection
+  token storage and disposal/cancellation. Errors never echo upstream private text.
+- The existing encrypted remembered-password flow reconnects with this client.
+  Optional schedule loading no longer allows a pending connect to recreate a saved
+  sign-in after logout/disconnect. The modern schedule endpoint is not established,
+  so the countdown stays unavailable.
+
+The app's student ID/password route now uses this client directly. Worker settings
+are no longer required or read. Tests use synthetic modern JSON; real MCPS student
+authentication and full grade normalization need verification in the protected app.
+Do not describe endpoint availability or synthetic passing tests as a successful
+live account connection.
+
+### Historical SOAP through the owner's Worker
+
+The historical `synergy.ts` client sends the SOAP request through the configured authenticated
 Cloudflare Worker to MCPS `/Service/PXPCommunication.asmx`. The Worker transport was
 repaired: use manual redirects and reject unexpected redirects/non-success responses.
-It reaches MCPS, but the observed API response is **UPD5304**. This differs from a
+It reached MCPS, but the observed API response was **UPD5304**. App routes no longer
+call this client. This differs from a
 relay outage. Official website availability is independent of this API rejection.
 
 Existing remembered-password support encrypts credentials with AES-256-GCM in an
@@ -85,15 +121,14 @@ typecheck/build passed; deployed September 25. Awaiting the user's post-fix live
 
 ## Next steps
 
-1. Keep the course parser fix separate from the still-unfinished automatic login.
-   Diagnose any new live parsing failure using minimal redacted structural evidence.
-2. Identify a supported ID/password-to-authenticated-MCPS-session flow with new
-   public protocol evidence or a developer explanation. Inspect initial sign-in,
-   not just storage of cookies after successful sign-in.
-3. If found, implement automatic cookie handling server-side with existing session
-   isolation and synthetic tests. Verify with the user's own sign-in in the app;
-   never request their password/cookie in chat or send it to MangoGrade as a proxy.
-4. Until verified, describe automatic login as unfinished and the cookie path as beta.
+1. Deploy the current mobile client when authorized, then verify with the user's own
+   sign-in in the protected app. Never request a password/token/cookie in chat.
+2. Diagnose live authentication or parsing failures using only safe error codes and
+   minimal redacted field structure. Do not fall back to Canvas grades, retired SOAP,
+   or third-party credential proxies.
+3. Establish the modern schedule/category contracts from primary protocol evidence
+   or safely redacted structure before extending those features.
+4. Until live login is verified, report it as unverified and the cookie path as beta.
 
 ## References and local research
 

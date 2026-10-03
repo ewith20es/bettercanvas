@@ -177,6 +177,56 @@ describe("keep me signed in", () => {
       await app.close();
     }
   });
+  it.each(["/api/gradebook/disconnect", "/api/logout"])(
+    "does not recreate a saved sign-in when %s finishes during schedule loading",
+    async (url) => {
+      const client = fakeClient();
+      let finish!: (value: { fetchedAt: string; meetings: [] }) => void;
+      let started!: () => void;
+      const loading = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      client.schedule.mockImplementationOnce(() => {
+        started();
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      });
+      const app = await buildApp(config, undefined, () => client);
+      try {
+        const session = await login(app);
+        const pending = post(app, "/api/gradebook/connect", session, {
+          username: "private-student",
+          password: "private-password",
+          remember: true,
+        }).then((result) => result);
+        await loading;
+        const disconnected = await post(app, url, session);
+        expect(disconnected.statusCode).toBe(200);
+        expect(
+          cookieValue(disconnected.headers["set-cookie"], "bc_gradebook"),
+        ).toBe("bc_gradebook=");
+        finish({ fetchedAt: "2026-10-03T12:00:00Z", meetings: [] });
+        const result = await pending;
+        expect(result.statusCode).toBe(409);
+        expect(result.headers["set-cookie"]).toBeUndefined();
+        expect(result.body).not.toContain("private-password");
+        expect(client.dispose).toHaveBeenCalledOnce();
+        const state = await app.inject({
+          url: "/api/gradebook",
+          headers: { cookie: session },
+        });
+        if (url === "/api/logout") expect(state.statusCode).toBe(401);
+        else
+          expect(state.json()).toMatchObject({
+            connected: false,
+            snapshot: null,
+          });
+      } finally {
+        await app.close();
+      }
+    },
+  );
   it("forgets the saved sign-in on disconnect, sign-out and a rejected password", async () => {
     const client = fakeClient();
     const app = await buildApp(config, undefined, () => client);

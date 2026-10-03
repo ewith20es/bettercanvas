@@ -1,5 +1,9 @@
 # Private StudentVUE relay
 
+Historical SOAP transport: Better Canvas now uses the official MCPS mobile JSON
+API directly. This Worker is not required by the student-ID/password connection
+and does not resolve MCPS's `UPD5304` rejection of the old API.
+
 This Worker accepts authenticated server requests at `/fulfillAxios`, forwards only to the fixed MCPS SOAP endpoint, and supports the app's Gradebook and StudentClassList methods. It never logs request bodies or credentials, follows no redirects, and bounds request size, response size and upstream fetch time. Do not add request-body logging.
 
 ## Cloudflare
