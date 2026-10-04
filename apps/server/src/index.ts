@@ -9,13 +9,21 @@ if (canvasOrigin !== "https://mcpsmd.instructure.com")
   throw new Error(
     "This personal app is configured only for https://mcpsmd.instructure.com.",
   );
+const studentvueProvider = process.env.STUDENTVUE_PROXY_PROVIDER ?? "gradedurian";
+if (!["gradedurian", "private", "mobile"].includes(studentvueProvider))
+  throw new Error("STUDENTVUE_PROXY_PROVIDER must be gradedurian, private, or mobile.");
 const app = await buildApp({
+  studentvueProvider: studentvueProvider as "gradedurian" | "private" | "mobile",
   production,
   canvasOrigin,
   token: process.env.CANVAS_ACCESS_TOKEN,
   password: process.env.APP_PASSWORD,
   // GRADEBOOK_SECRET is the earlier name for APP_SECRET and still works.
   secret: process.env.APP_SECRET || process.env.GRADEBOOK_SECRET,
+  studentvueRelay: process.env.STUDENTVUE_PROXY_PROVIDER === "private" ? {
+    url: process.env.STUDENTVUE_RELAY_URL,
+    token: process.env.STUDENTVUE_RELAY_TOKEN,
+  } : { provider: "gradedurian" },
   origin:
     process.env.APP_ORIGIN ||
     process.env.RENDER_EXTERNAL_URL ||

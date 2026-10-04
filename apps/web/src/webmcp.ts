@@ -12,7 +12,7 @@ type Context = {
     options: { signal: AbortSignal },
   ) => void | Promise<void>;
 };
-export function useAssignmentTools(assignments: Assignment[], now: Date) {
+export function useAssignmentTools(assignments: Assignment[], now: Date, submittedInPerson: string[] = []) {
   useEffect(() => {
     const context = (document as Document & { modelContext?: Context })
       .modelContext;
@@ -41,7 +41,7 @@ export function useAssignmentTools(assignments: Assignment[], now: Date) {
                 throw new Error("This tool accepts an empty object only.");
               return {
                 assignments: assignments.map((a) => {
-                  const s = statusOf(a, now);
+                  const s = statusOf(a, now, submittedInPerson.includes(`${a.courseId}:${a.id}`));
                   return {
                     name: a.name,
                     dueAt: a.dueAt,
@@ -62,5 +62,5 @@ export function useAssignmentTools(assignments: Assignment[], now: Date) {
       /* Optional browser capability. */
     }
     return () => lifecycle.abort();
-  }, [assignments, now]);
+  }, [assignments, now, submittedInPerson]);
 }

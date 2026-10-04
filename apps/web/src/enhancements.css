@@ -1,6 +1,29 @@
 :root {
   font-family: "DM Sans Variable", system-ui, sans-serif;
 }
+.assignment-agenda { display: grid; gap: 28px; }
+.assignment-date-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.5;
+  color: var(--text);
+}
+.assignment-date-heading::after {
+  content: "";
+  flex: 1;
+  min-width: 20px;
+  height: 1px;
+  background: var(--line);
+}
+.assignment-date-count {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
 .sidebar-note {
   margin-top: auto;
   display: flex;
@@ -17,6 +40,43 @@
 }
 .sidebar-footer {
   margin-top: 0;
+}
+.token-expiry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+}
+.token-expiry svg { flex-shrink: 0; color: var(--green); }
+.token-expiry span { display: grid; gap: 4px; }
+.token-expiry small { font-size: 11px; color: var(--muted); }
+.token-expiry strong { font-size: 18px; }
+.token-expiry--soon { border-color: #b88719; }
+.token-expiry--soon svg { color: #b88719; }
+.token-expiry--expired { border-color: #db515b; }
+.token-expiry--expired svg { color: #db515b; }
+.sidebar > .token-expiry { margin-bottom: 16px; }
+.sidebar > .token-expiry:hover { border-color: var(--green); }
+.token-expiry-settings { padding: 16px 0; scroll-margin-top: 24px; }
+.token-expiry-form { margin-top: 18px; }
+.token-expiry-form label { display: block; margin-bottom: 8px; font-weight: 600; }
+.token-expiry-form > div { display: flex; flex-wrap: wrap; gap: 10px; }
+.token-expiry-form input {
+  min-width: 0;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--bg);
+  font: inherit;
+}
+@media (max-width: 700px) {
+  .sidebar > .token-expiry { display: none; }
 }
 .sidebar-footer strong {
   display: block;
@@ -1273,6 +1333,18 @@ input:not([type="checkbox"]):not([type="color"]) {
   margin-right: 12px;
   color: var(--muted);
 }
+.assignment-check-button {
+  align-self: center;
+  flex-shrink: 0;
+  color: var(--muted);
+  margin-right: 4px;
+}
+.assignment-check-button[aria-pressed="true"] {
+  color: var(--green);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.in-person-detail { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 13px; color: var(--muted); }
 .assignment-hidden .assignment-row {
   filter: grayscale(1);
   opacity: 0.55;

@@ -64,6 +64,7 @@ export type TodaySchedule = {
 };
 export type GradebookConnection = {
   connected: boolean;
+  method?: "api" | "browser-session" | null;
   canConnect: boolean;
   /** The server can keep this device signed in to StudentVUE. */
   canRemember: boolean;

@@ -41,6 +41,7 @@ import {
   type Status,
 } from "../../../packages/domain/src";
 import type { Preferences } from "./data";
+import { TokenExpirySettings } from "./TokenExpiry";
 import {
   coursePeriod,
   schedule,
@@ -65,6 +66,20 @@ const colorOf = (c: Course, data: Snapshot, p: Preferences) =>
     ) % courseColors.length
   ];
 const assignmentKey = (a: Assignment) => `${a.courseId}:${a.id}`;
+const inPerson = (a: Assignment, p: Preferences) => p.submittedInPerson.includes(assignmentKey(a));
+function InPersonButton({ a, prefs, updatePrefs }: Pick<ViewProps, "prefs" | "updatePrefs"> & { a: Assignment }) {
+  const checked = inPerson(a, prefs);
+  const label = checked ? "Undo submitted in person" : "Mark submitted in person";
+  return (
+    <button className="assignment-check-button icon-button" aria-pressed={checked}
+      aria-label={`${label}: ${a.name}`} title={`${label} (saved on this device only)`}
+      onClick={() => updatePrefs({ submittedInPerson: checked
+        ? prefs.submittedInPerson.filter((id) => id !== assignmentKey(a))
+        : [...prefs.submittedInPerson, assignmentKey(a)] })}>
+      <Check size={19} />
+    </button>
+  );
+}
 const missingOrOverdue = (s: Status) => !s.excused && (s.missing || s.overdue);
 const visible = (d: Snapshot, p: Preferences, hidden = p.hiddenAssignments) =>
   d.assignments.filter(
@@ -96,8 +111,8 @@ export function Empty({
     </div>
   );
 }
-function Badge({ a, now }: { a: Assignment; now: Date }) {
-  const s = statusOf(a, now);
+function Badge({ a, now, prefs }: { a: Assignment; now: Date; prefs: Preferences }) {
+  const s = statusOf(a, now, inPerson(a, prefs));
   return (
     <span className={"badge " + s.tone}>
       {s.submitted ? (
@@ -119,7 +134,7 @@ function Row({
 }: ViewProps & { a: Assignment }) {
   const hidden = prefs.hiddenAssignments.includes(assignmentKey(a));
   const c = data.courses.find((c) => c.id === a.courseId)!;
-  const s = statusOf(a, now),
+  const s = statusOf(a, now, inPerson(a, prefs)),
     sync = data.sync.find((v) => v.courseId === a.courseId);
   return (
     <div
@@ -127,7 +142,7 @@ function Row({
     >
       <button
         className={
-          "assignment-row " + (attentionRank(a, now) < 3 ? "attention" : "")
+          "assignment-row " + (attentionRank(a, now, inPerson(a, prefs)) < 3 ? "attention" : "")
         }
         onClick={() => open(a)}
         aria-label={`${a.name}, ${s.label}${s.missing ? ", Missing in Canvas" : ""}`}
@@ -168,7 +183,7 @@ function Row({
           )}
         </div>
         <div className="status-column">
-          <Badge a={a} now={now} />
+          <Badge a={a} now={now} prefs={prefs} />
           {s.grading && (
             <small>
               {s.grading}
@@ -180,6 +195,7 @@ function Row({
         </div>
         <ChevronRight size={17} />
       </button>
+      <InPersonButton a={a} prefs={prefs} updatePrefs={updatePrefs} />
       <button
         className="assignment-hide-button icon-button"
         aria-label={`${hidden ? "Unhide" : "Hide"} ${a.name}`}
@@ -231,13 +247,13 @@ export function Home(props: ViewProps & { incomplete: boolean }) {
   const [showDone, setShowDone] = useState(false);
   const all = visible(data, prefs, props.hiddenAtEntry),
     today = dayKey(now, prefs.zone);
-  const needs = all.filter((a) => statusOf(a, now).needsWork),
+  const needs = all.filter((a) => statusOf(a, now, inPerson(a, prefs)).needsWork),
     selected = sortAssignments(showDone ? all : needs);
   const attention = selected
-    .filter((a) => attentionRank(a, now) < 9)
-    .sort((a, b) => attentionRank(a, now) - attentionRank(b, now));
+    .filter((a) => attentionRank(a, now, inPerson(a, prefs)) < 9)
+    .sort((a, b) => attentionRank(a, now, inPerson(a, prefs)) - attentionRank(b, now, inPerson(b, prefs)));
   const remaining = selected.filter(
-    (a) => attentionRank(a, now) === 9 && !statusOf(a, now).excused,
+    (a) => attentionRank(a, now, inPerson(a, prefs)) === 9 && !statusOf(a, now, inPerson(a, prefs)).excused,
   );
   const todayItems = remaining.filter(
       (a) => a.dueAt && dayKey(a.dueAt, prefs.zone) === today,
@@ -252,7 +268,7 @@ export function Home(props: ViewProps & { incomplete: boolean }) {
       (a) => a.dueAt && dayKey(a.dueAt, prefs.zone) < today,
     ),
     undated = remaining.filter((a) => !a.dueAt);
-  const completed = all.filter((a) => statusOf(a, now).submitted).length,
+  const completed = all.filter((a) => statusOf(a, now, inPerson(a, prefs)).submitted).length,
     counts = all.filter(
       (a) => a.dueAt && dayKey(a.dueAt, prefs.zone) === today,
     ).length;
@@ -372,8 +388,8 @@ export function Home(props: ViewProps & { incomplete: boolean }) {
         <Section title="Earlier assignments" items={older} props={props} />
       )}
       <div className="quiet-note">
-        <ShieldCheck size={15} /> Submission labels reflect Canvas. Always
-        submit your work in Canvas.
+        <ShieldCheck size={15} /> Canvas statuses include your personal in-person marks.
+        Submit work using your teacher’s instructions.
       </div>
     </>
   );
@@ -392,7 +408,7 @@ export function Assignments(props: ViewProps) {
   const statusFilter =
     requestedStatus === "overdue" ? "missing" : requestedStatus;
   const missingCount = visible(data, prefs).filter((a) =>
-    missingOrOverdue(statusOf(a, now)),
+    missingOrOverdue(statusOf(a, now, inPerson(a, prefs))),
   ).length;
   const set = (key: string, value: string) =>
     setParams((prev) => {
@@ -415,7 +431,7 @@ export function Assignments(props: ViewProps) {
         )
       : visible(data, prefs, props.hiddenAtEntry)
     ).filter((a) => {
-      const s = statusOf(a, now);
+      const s = statusOf(a, now, inPerson(a, prefs));
       const match =
         statusFilter === "upcoming"
           ? !!a.dueAt && Date.parse(a.dueAt) >= now.getTime()
@@ -426,7 +442,7 @@ export function Assignments(props: ViewProps) {
               : statusFilter === "graded"
                 ? s.graded
                 : statusFilter === "attention"
-                  ? attentionRank(a, now) < 9
+                  ? attentionRank(a, now, inPerson(a, prefs)) < 9
                   : true;
       return (
         match &&
@@ -437,7 +453,10 @@ export function Assignments(props: ViewProps) {
       );
     }),
   );
-  const sort = params.get("sort") ?? "due";
+  const defaultSort = ["submitted", "graded", "hidden"].includes(filter)
+    ? "newest"
+    : "due";
+  const sort = params.get("sort") ?? defaultSort;
   if (sort === "newest")
     filtered.sort(
       (a, b) =>
@@ -458,7 +477,24 @@ export function Assignments(props: ViewProps) {
         ),
       ),
     );
-  useAssignmentTools(filtered, now);
+  const dueGroups = new Map<string, Assignment[]>();
+  if (filter === "upcoming") {
+    for (const assignment of filtered) {
+      const key = dayKey(assignment.dueAt!, prefs.zone);
+      const group = dueGroups.get(key) ?? [];
+      group.push(assignment);
+      dueGroups.set(key, group);
+    }
+  }
+  const orderedGroups = [...dueGroups].sort(([a], [b]) =>
+    sort === "newest" ? b.localeCompare(a) : a.localeCompare(b),
+  );
+  const today = dayKey(now, prefs.zone);
+  useAssignmentTools(
+    filter === "upcoming" ? orderedGroups.flatMap(([, items]) => items) : filtered,
+    now,
+    prefs.submittedInPerson,
+  );
   return (
     <>
       <div className="tabs" aria-label="Assignment filters">
@@ -481,6 +517,7 @@ export function Assignments(props: ViewProps) {
                 p.delete("q");
                 p.delete("work");
                 p.delete("status");
+                p.delete("sort");
                 return p;
               })
             }
@@ -496,7 +533,7 @@ export function Assignments(props: ViewProps) {
       </div>
       {filter === "missing" && (
         <p className="filter-help">
-          Assignments marked missing in Canvas or overdue and not submitted.
+          Missing in Canvas or past due without a recorded submission. Use the checkmark for work submitted in person; this is saved on this device only and does not change Canvas. Undo it from Submitted or All.
         </p>
       )}
       {filter === "hidden" && (
@@ -551,8 +588,8 @@ export function Assignments(props: ViewProps) {
         >
           <option value="due">Due date: earliest first</option>
           <option value="newest">Due date: latest first</option>
-          <option value="name">Assignment name</option>
-          <option value="course">Course name</option>
+          <option value="name">{filter === "upcoming" ? "Name within each day" : "Assignment name"}</option>
+          <option value="course">{filter === "upcoming" ? "Course within each day" : "Course name"}</option>
         </select>
       </div>
       <div className="filter-secondary">
@@ -572,13 +609,13 @@ export function Assignments(props: ViewProps) {
             query ||
             work ||
             day ||
-            sort !== "due" ||
+            sort !== defaultSort ||
             (filter === "hidden" && statusFilter !== "all") ||
             filter === "attention") && (
             <button
               className="text-button"
               onClick={() =>
-                setParams(filter === "hidden" ? { filter: "hidden" } : {})
+                setParams(filter === "attention" ? {} : { filter })
               }
             >
               Clear filters
@@ -587,11 +624,38 @@ export function Assignments(props: ViewProps) {
         </div>
       </div>
       {filtered.length ? (
+        filter === "upcoming" ? (
+          <div className="assignment-agenda">
+            {orderedGroups.map(([date, assignments]) => (
+              <section key={date} aria-labelledby={`due-${date}`}>
+                <h2 id={`due-${date}`} className="assignment-date-heading">
+                  <time dateTime={date}>
+                    {date === today ? "Today · " : date === shiftDay(today, 1) ? "Tomorrow · " : ""}
+                    {new Intl.DateTimeFormat("en-US", {
+                      timeZone: "UTC",
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    }).format(new Date(`${date}T12:00:00Z`))}
+                  </time>
+                  <span className="assignment-date-count">{assignments.length}</span>
+                </h2>
+                <div className="assignment-list">
+                  {assignments.map((a) => (
+                    <Row key={`${a.courseId}:${a.id}`} a={a} {...props} />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        ) : (
         <div className="assignment-list">
           {filtered.map((a) => (
             <Row key={`${a.courseId}:${a.id}`} a={a} {...props} />
           ))}
         </div>
+        )
       ) : (
         <Empty
           title="No assignments match."
@@ -774,9 +838,9 @@ export function Courses(props: ViewProps) {
                 !prefs.hiddenAssignments.includes(assignmentKey(a)),
             ),
             missing = list.filter((a) =>
-              missingOrOverdue(statusOf(a, now)),
+              missingOrOverdue(statusOf(a, now, inPerson(a, prefs))),
             ).length,
-            needs = list.filter((a) => statusOf(a, now).needsWork).length,
+            needs = list.filter((a) => statusOf(a, now, inPerson(a, prefs)).needsWork).length,
             hidden = prefs.hidden.includes(c.id);
           return (
             <article
@@ -978,6 +1042,11 @@ export function Settings(
               Canvas and hosting settings.
             </p>
           )}
+          <TokenExpirySettings
+            date={prefs.canvasTokenExpiry}
+            now={props.now}
+            save={(canvasTokenExpiry) => updatePrefs({ canvasTokenExpiry })}
+          />
         </div>
       </section>
       <section className="settings-card">
@@ -1152,10 +1221,11 @@ export function Detail({
   prefs,
   now,
   close,
+  updatePrefs,
 }: ViewProps & { a: Assignment; close: () => void }) {
   const ref = useRef<HTMLDialogElement>(null),
     c = data.courses.find((c) => c.id === a.courseId)!,
-    s = statusOf(a, now);
+    s = statusOf(a, now, inPerson(a, prefs));
   useEffect(() => {
     ref.current?.showModal();
     return () => ref.current?.close();
@@ -1187,8 +1257,12 @@ export function Detail({
           </button>
         </div>
         <h2 id="detail-title">{a.name}</h2>
+        <div className="in-person-detail">
+          <InPersonButton a={a} prefs={prefs} updatePrefs={updatePrefs} />
+          <span>Submitted in person · your record on this device only</span>
+        </div>
         <div className="detail-badges">
-          <Badge a={a} now={now} />
+          <Badge a={a} now={now} prefs={prefs} />
           {s.missing && <span className="badge red">Missing in Canvas</span>}
           {s.late && <span className="badge amber">Late in Canvas</span>}
           {s.grading && <span className="badge blue">{s.grading}</span>}
@@ -1209,6 +1283,8 @@ export function Detail({
             <dd>
               {a.submission?.submittedAt
                 ? fmtFull(a.submission.submittedAt, prefs.zone)
+                : inPerson(a, prefs)
+                  ? "Marked submitted in person by you; no submission time recorded"
                 : s.submitted
                   ? "Canvas recorded submission; time unavailable"
                   : "No submission time recorded"}

@@ -12,7 +12,9 @@ import {
   seal,
   unseal,
 } from "./remember";
-import { SynergyClient, SynergyError, type GradebookClient } from "./synergy";
+import { SynergyError, type GradebookClient } from "./synergy";
+import { StudentVueMobileClient } from "./studentvue-mobile";
+import { normalizeSessionCookie, StudentVueWebClient } from "./studentvue-web";
 
 export type SynergyFactory = (
   username: string,
@@ -20,6 +22,7 @@ export type SynergyFactory = (
 ) => GradebookClient;
 type Connection = {
   client: GradebookClient;
+  method: "api" | "browser-session";
   expires: number;
   snapshot: Gradebook | null;
   schedule: TodaySchedule | null;
@@ -49,6 +52,7 @@ export function registerGradebook(
     /** True once a session id has signed out. */
     revoked: (id: string) => boolean;
     factory?: SynergyFactory;
+    webFactory?: (cookie: string) => GradebookClient;
     /** Null disables "keep me signed in". */
     rememberKey?: Buffer | null;
     secure?: boolean;
@@ -88,6 +92,7 @@ export function registerGradebook(
     const c = get(key);
     return {
       connected: !!c?.snapshot,
+      method: c?.method ?? null,
       canConnect: options.enabled,
       canRemember: !!rememberKey,
       remembered: !!remembered(remember),
@@ -113,16 +118,24 @@ export function registerGradebook(
   });
 
   /** Signs in to StudentVUE and loads the first gradebook for this session. */
-  const open = async (key: string, username: string, password: string) => {
+  const open = async (
+    key: string,
+    username: string,
+    password: string,
+    webClient?: GradebookClient,
+  ) => {
     forget(key);
     // Bound memory use: drop the oldest connection beyond 30 signed-in devices.
     if (connections.size >= maxConnections)
       forget(connections.keys().next().value!);
     const c: Connection = {
-      client: (options.factory ?? ((u, p) => new SynergyClient(u, p)))(
-        username,
-        password,
-      ),
+      client:
+        webClient ??
+        (options.factory ?? ((u, p) => new StudentVueMobileClient(u, p)))(
+          username,
+          password,
+        ),
+      method: webClient ? "browser-session" : "api",
       expires: Date.now() + connectionAge,
       snapshot: null,
       schedule: null,
@@ -143,6 +156,7 @@ export function registerGradebook(
       } catch {
         /* countdown stays hidden */
       }
+      assertActive(key, c);
     } catch (e) {
       if (connections.get(key) === c) forget(key);
       throw e;
@@ -155,6 +169,42 @@ export function registerGradebook(
 
   app.get("/api/gradebook", async (req) =>
     state(sessionKey(req), req.cookies[rememberCookie]),
+  );
+  app.post(
+    "/api/gradebook/connect-session",
+    {
+      bodyLimit: 16384,
+      config: { rateLimit: { max: 5, timeWindow: "15 minutes" } },
+    },
+    async (req, reply) => {
+      const key = sessionKey(req);
+      if (!options.enabled || !sessionValid(key))
+        return reply.code(403).send({ error: notReady });
+      const parsed = z
+        .object({ cookie: z.string().min(1).max(6020) })
+        .strict()
+        .safeParse(req.body);
+      if (!parsed.success)
+        return reply.code(400).send({
+          error:
+            "Paste your StudentVUE session cookie in the private connection field.",
+        });
+      const cookie = normalizeSessionCookie(parsed.data.cookie);
+      if (get(key)?.busy)
+        return reply.code(409).send({
+          error: "A StudentVUE request is still running. Please wait.",
+        });
+      // A browser session is never put in a saved-sign-in cookie or local storage.
+      // Explicitly switching modes also forgets the old API sign-in.
+      forgetLogin(reply);
+      await open(
+        key,
+        "",
+        "",
+        (options.webFactory ?? ((c) => new StudentVueWebClient(c)))(cookie),
+      );
+      return state(key);
+    },
   );
   app.post(
     "/api/gradebook/connect",

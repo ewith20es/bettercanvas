@@ -9,15 +9,11 @@ import type {
 } from "../../../packages/domain/src/gradebook";
 
 export const STUDENTVUE_ORIGIN = "https://md-mcps-psv.edupoint.com";
-// Synergy SOAP endpoint for this district. MCPS now blocks direct SOAP calls
-// with UPD5304 ("update your app"). The block is at the network layer, so a
-// byte-identical request is rejected when sent from a server but accepted when
-// relayed through the StudentVUE proxy. We send the same envelope through the
-// proxy GradeDurian uses (https://github.com/btdpass/GradeDurian), which reaches
-// Synergy on our behalf and returns { status, response }.
+// GradeDurian is the user-requested default. Private relay remains opt-in.
+// Transport availability does not guarantee MCPS accepts authentication.
 const district = `${STUDENTVUE_ORIGIN}/Service/PXPCommunication.asmx`;
-const PROXY_ENDPOINT =
-  "https://cloudproxy.gradedurian.workers.dev/fulfillAxios";
+export const GRADEDURIAN_PROXY = "https://cloudproxy.gradedurian.workers.dev/fulfillAxios";
+export type SynergyRelay = { provider?: "gradedurian"; url?: string; token?: string };
 const maxBytes = 8 * 1024 * 1024;
 export class SynergyError extends Error {
   constructor(
@@ -153,7 +149,7 @@ export function parseGradebook(
     const message = attr(node(payload.RT_ERROR), "ERROR_MESSAGE");
     if (/\bUPD5304(?:-\d+)?\b/i.test(message))
       throw new SynergyError(
-        "StudentVUE's grade service is temporarily unavailable (UPD5304). Please try again in a little while.",
+        "MCPS is rejecting this app's StudentVUE API request (UPD5304). The official StudentVUE website may still work.",
         503,
       );
     if (
@@ -324,6 +320,7 @@ export class SynergyClient implements GradebookClient {
     private username: string,
     private password: string,
     private request: typeof fetch = fetch,
+    private relayConfig: SynergyRelay = { provider: "gradedurian" },
   ) {}
   dispose() {
     this.username = "";
@@ -354,6 +351,33 @@ export class SynergyClient implements GradebookClient {
         "Reconnect StudentVUE to refresh your grades.",
         409,
       );
+    const gradedurian = this.relayConfig.provider === "gradedurian";
+    // Never forward the private Worker's bearer token to the public proxy.
+    const url = gradedurian ? GRADEDURIAN_PROXY : this.relayConfig.url;
+    const token = gradedurian ? undefined : this.relayConfig.token;
+    if (!url || (!gradedurian && !token?.trim()))
+      throw new SynergyError(
+        "StudentVUE relay is not configured. Set STUDENTVUE_RELAY_URL and STUDENTVUE_RELAY_TOKEN on the server.",
+        503,
+      );
+    let endpoint: URL;
+    try {
+      endpoint = new URL(url);
+      if (
+        endpoint.protocol !== "https:" ||
+        endpoint.username ||
+        endpoint.password ||
+        endpoint.search ||
+        endpoint.hash ||
+        endpoint.pathname !== "/fulfillAxios"
+      )
+        throw new Error("Invalid relay URL");
+    } catch {
+      throw new SynergyError(
+        "STUDENTVUE_RELAY_URL must be an HTTPS Worker URL ending in /fulfillAxios.",
+        503,
+      );
+    }
     const xml = `<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><ProcessWebServiceRequestMultiWeb xmlns="http://edupoint.com/webservices/"><userID>${escapeXml(this.username)}</userID><password>${escapeXml(this.password)}</password><skipLoginLog>0</skipLoginLog><parent>0</parent><webServiceHandleName>PXPWebServices</webServiceHandleName><methodName>${escapeXml(methodName)}</methodName><paramStr>${escapeXml(params)}</paramStr></ProcessWebServiceRequestMultiWeb></soap:Body></soap:Envelope>`;
     // The proxy relays this envelope to `district` and returns
     // { status, response }. `encrypted: false` forwards the password as sent.
@@ -363,17 +387,30 @@ export class SynergyClient implements GradebookClient {
       encrypted: false,
     });
     try {
-      const response = await this.request(PROXY_ENDPOINT, {
+      const response = await this.request(endpoint.href, {
         method: "POST",
         redirect: "error",
         signal: AbortSignal.timeout(25000),
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(!gradedurian ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: requestBody,
       });
-      if (!response.ok || !response.body)
+      if (response.status === 401 || response.status === 403) {
+        await response.body?.cancel();
         throw new SynergyError(
-          "StudentVUE is unavailable right now. Please try again later.",
+          gradedurian
+            ? "GradeDurian's proxy rejected the request. Please try again later."
+            : "StudentVUE relay rejected its access token. Match STUDENTVUE_RELAY_TOKEN in Render to RELAY_TOKEN in Cloudflare.",
+          503,
         );
+      }
+      const relayFailure = () =>
+        new SynergyError(
+          `The StudentVUE relay returned HTTP ${response.status}. This does not mean the official StudentVUE website is down.`,
+        );
+      if (!response.body) throw relayFailure();
       const reader = response.body.getReader();
       const chunks: Uint8Array[] = [];
       let size = 0;
@@ -382,8 +419,9 @@ export class SynergyClient implements GradebookClient {
           const { done, value } = await reader.read();
           if (done) break;
           size += value.byteLength;
-          if (size > maxBytes) {
+          if (size > (response.ok ? maxBytes : 8192)) {
             await reader.cancel();
+            if (!response.ok) throw relayFailure();
             throw new SynergyError(
               "This StudentVUE response is too large to display.",
             );
@@ -393,13 +431,36 @@ export class SynergyClient implements GradebookClient {
       } finally {
         reader.releaseLock();
       }
-      let relayed: { status?: unknown; response?: unknown };
+      let relayed: {
+        status?: unknown;
+        response?: unknown;
+        code?: unknown;
+        upstreamStatus?: unknown;
+      };
       try {
         relayed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       } catch {
+        if (!response.ok) throw relayFailure();
         throw new SynergyError(
           "StudentVUE returned an unreadable response. Please try again.",
         );
+      }
+      if (!response.ok) {
+        if (relayed?.code === "UPSTREAM_NETWORK")
+          throw new SynergyError(
+            "Your StudentVUE relay could not reach MCPS's grade API. The official StudentVUE website may still work.",
+          );
+        if (
+          relayed?.code === "UPSTREAM_HTTP" &&
+          typeof relayed.upstreamStatus === "number" &&
+          Number.isInteger(relayed.upstreamStatus) &&
+          relayed.upstreamStatus >= 100 &&
+          relayed.upstreamStatus <= 599
+        )
+          throw new SynergyError(
+            `MCPS returned HTTP ${relayed.upstreamStatus} to your StudentVUE relay. The official StudentVUE website may still work.`,
+          );
+        throw relayFailure();
       }
       // The proxy reports transport failures as { status: false }; a real
       // Synergy reply (including RT_ERROR) comes back as a `response` string.

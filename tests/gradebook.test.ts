@@ -5,6 +5,7 @@ import {
   parseTodaySchedule,
   SynergyClient,
   SynergyError,
+  GRADEDURIAN_PROXY,
 } from "../apps/server/src/synergy";
 import { demoGradebook } from "../packages/domain/src/gradebook-demo";
 import {
@@ -239,10 +240,17 @@ describe("Synergy gradebook normalization", () => {
           JSON.stringify({ status: true, response: envelope(fixture) }),
         ),
       );
-    const client = new SynergyClient("123<456", 'pw&"<>', fetcher);
+    const client = new SynergyClient("123<456", 'pw&"<>', fetcher, {
+      url: "https://relay.example/fulfillAxios",
+      token: "test-relay-token",
+    });
     await client.gradebook(0);
     const [url, options] = fetcher.mock.calls[0];
-    expect(url).toBe("https://cloudproxy.gradedurian.workers.dev/fulfillAxios");
+    expect(url).toBe("https://relay.example/fulfillAxios");
+    expect(new Headers(options?.headers).get("authorization")).toBe(
+      "Bearer test-relay-token",
+    );
+    expect(String(options?.body)).not.toContain("test-relay-token");
     expect(options?.redirect).toBe("error");
     const payload = JSON.parse(String(options?.body));
     expect(payload.url).toBe(
@@ -261,6 +269,7 @@ describe("Synergy gradebook normalization", () => {
       "test",
       "secret",
       vi.fn<typeof fetch>().mockRejectedValue(new Error("secret")),
+      { url: "https://relay.example/fulfillAxios", token: "test-relay-token" },
     );
     await expect(client.gradebook()).rejects.toThrow(
       "Could not reach StudentVUE",
@@ -277,6 +286,7 @@ describe("Synergy gradebook normalization", () => {
             JSON.stringify({ status: false, message: "proxy internal secret" }),
           ),
         ),
+      { url: "https://relay.example/fulfillAxios", token: "test-relay-token" },
     );
     await expect(client.gradebook()).rejects.toThrow(
       "could not open your gradebook",
@@ -290,9 +300,99 @@ describe("Synergy gradebook normalization", () => {
       vi
         .fn<typeof fetch>()
         .mockResolvedValue(new Response("<html>502 Bad Gateway</html>")),
+      { url: "https://relay.example/fulfillAxios", token: "test-relay-token" },
     );
     await expect(client.gradebook()).rejects.toThrow("unreadable response");
   });
+  it("uses GradeDurian by default without leaking private relay settings", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () =>
+      new Response(JSON.stringify({ status: true, response: multiWebEnvelope(fixture) })),
+    );
+    await new SynergyClient("synthetic-student", "synthetic-password", fetcher).gradebook();
+    await new SynergyClient("synthetic-student", "synthetic-password", fetcher, {
+      provider: "gradedurian", url: "https://private.example/fulfillAxios", token: "private-worker-secret",
+    }).gradebook();
+    for (const [url, options] of fetcher.mock.calls) {
+      expect(url).toBe(GRADEDURIAN_PROXY);
+      expect(new Headers(options?.headers).has("Authorization")).toBe(false);
+      expect(options?.redirect).toBe("error");
+      expect(String(options?.body)).not.toContain("private-worker-secret");
+      expect(JSON.parse(String(options?.body)).url).toBe("https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx");
+    }
+  });
+  it("does not transmit credentials without a complete HTTPS relay configuration", async () => {
+    const fetcher = vi.fn<typeof fetch>();
+    for (const config of [
+      {},
+      { url: "https://relay.example/fulfillAxios" },
+      { token: "test" },
+      { url: "http://relay.example/fulfillAxios", token: "test" },
+      { url: "https://relay.example/fulfillAxios?token=test", token: "test" },
+    ]) {
+      await expect(
+        new SynergyClient("student", "secret", fetcher, config).gradebook(),
+      ).rejects.toThrow("STUDENTVUE_RELAY");
+    }
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("explains a relay token mismatch without exposing the response", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("private detail", { status: 401 }));
+    const client = new SynergyClient("student", "secret", fetcher, {
+      url: "https://relay.example/fulfillAxios",
+      token: "test",
+    });
+    await expect(client.gradebook()).rejects.toThrow(
+      "Match STUDENTVUE_RELAY_TOKEN",
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    [
+      JSON.stringify({
+        status: false,
+        code: "UPSTREAM_NETWORK",
+        message: "private detail",
+      }),
+      "relay could not reach MCPS",
+    ],
+    [
+      JSON.stringify({
+        status: false,
+        code: "UPSTREAM_HTTP",
+        upstreamStatus: 503,
+        message: "private detail",
+      }),
+      "MCPS returned HTTP 503",
+    ],
+    ["<html>private detail</html>", "relay returned HTTP 502"],
+    [
+      JSON.stringify({
+        code: "UPSTREAM_HTTP",
+        upstreamStatus: "private detail",
+      }),
+      "relay returned HTTP 502",
+    ],
+    ["private detail".repeat(1000), "relay returned HTTP 502"],
+  ])(
+    "distinguishes a relay failure without exposing its body",
+    async (body, message) => {
+      const client = new SynergyClient(
+        "student",
+        "secret",
+        vi
+          .fn<typeof fetch>()
+          .mockImplementation(async () => new Response(body, { status: 502 })),
+        {
+          url: "https://relay.example/fulfillAxios",
+          token: "test",
+        },
+      );
+      await expect(client.gradebook()).rejects.toThrow(message);
+      await expect(client.gradebook()).rejects.not.toThrow("private detail");
+    },
+  );
 });
 
 describe("what-if estimates", () => {

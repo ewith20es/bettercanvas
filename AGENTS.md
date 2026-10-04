@@ -1,15 +1,12 @@
-# Better Canvas checkout routing
+# Better Canvas agent entry point
 
-The active project work, as of September 25, 2026, is in the Claude worktree:
-`.claude/worktrees/gradebook-synergy-integration-2fbac6` on branch
-`claude/gradebook-synergy-integration-2fbac6`. This outer checkout is separate and older.
+Active branch: `main`, in `C:\Users\hankw\Desktop\better canvas`, per the user's
+October 4 request. The Claude branch has been merged; use this checkout for future edits.
 
-Before editing, read the active checkout's [AGENTS.md](.claude/worktrees/gradebook-synergy-integration-2fbac6/AGENTS.md),
-[CLAUDE.md](.claude/worktrees/gradebook-synergy-integration-2fbac6/CLAUDE.md),
-[PROJECT.md](.claude/worktrees/gradebook-synergy-integration-2fbac6/PROJECT.md), and
-[CHANGELOG.md](.claude/worktrees/gradebook-synergy-integration-2fbac6/CHANGELOG.md).
+Read [CLAUDE.md](CLAUDE.md), [PROJECT.md](PROJECT.md), and the newest entries in
+[CHANGELOG.md](CHANGELOG.md) before making changes. These are shared context for
+Codex, Claude, and other coding agents; CLAUDE.md is the single working agreement.
 
-Run project commands from that checkout. Verify actual branch/status first and
-preserve existing changes. Do not automatically switch or merge this outer checkout.
-If the worktree has moved or the user selects another branch, locate the current
-checkout and update this pointer instead of assuming the old location is authoritative.
+For StudentVUE work also read [the connection handoff](docs/STUDENTVUE.md).
+Confirm the current branch and working-tree changes before editing. Preserve work
+already in progress. Follow the context-update checklist in CLAUDE.md before ending.

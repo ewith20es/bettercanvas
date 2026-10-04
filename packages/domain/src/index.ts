@@ -64,7 +64,7 @@ export const emptySubmission: Submission = {
   currentGrade: null,
   redo: false,
 };
-export function statusOf(a: Assignment, now = new Date()): Status {
+export function statusOf(a: Assignment, now = new Date(), submittedInPerson = false): Status {
   const s = a.submission;
   const submitted =
     !!s?.submittedAt ||
@@ -79,7 +79,7 @@ export function statusOf(a: Assignment, now = new Date()): Status {
   const offline = a.types.includes("on_paper") || a.types.includes("none");
   const unsubmitted =
     s?.state === "unsubmitted" && !submitted && !external && !offline;
-  const overdue = !excused && past && unsubmitted;
+  const overdue = !excused && past && !submitted && !graded;
   const check = !excused && !submitted && !graded && !unsubmitted;
   let label = "Status unavailable";
   let tone: Status["tone"] = "gray";
@@ -99,6 +99,10 @@ export function statusOf(a: Assignment, now = new Date()): Status {
   } else if (graded) {
     label = "No submission recorded";
   }
+  if (!excused && !submitted && (missing || overdue)) {
+    label = "Missing";
+    tone = "red";
+  }
   const grading = graded
     ? s?.currentGrade === false
       ? "Previous attempt graded"
@@ -114,10 +118,17 @@ export function statusOf(a: Assignment, now = new Date()): Status {
       : missing
         ? "Missing in Canvas"
         : overdue
-          ? "Overdue"
+          ? "Past due — no submission recorded"
           : check && past
             ? "Past due — check Canvas"
             : null;
+  if (submittedInPerson && !excused) {
+    return {
+      label: "Submitted in person", tone: "green", submitted: true, graded,
+      missing: false, late, overdue: false, needsWork: false, check: false,
+      excused, grading: graded ? grading : "Awaiting grade", reason: null,
+    };
+  }
   return {
     label,
     tone,
@@ -173,9 +184,9 @@ export function sortAssignments(list: Assignment[]) {
       a.name.localeCompare(b.name),
   );
 }
-export function attentionRank(a: Assignment, now = new Date()) {
-  const s = statusOf(a, now);
-  return s.excused
+export function attentionRank(a: Assignment, now = new Date(), submittedInPerson = false) {
+  const s = statusOf(a, now, submittedInPerson);
+  return s.excused || submittedInPerson
     ? 9
     : a.submission?.redo
       ? 0

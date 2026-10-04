@@ -51,7 +51,7 @@ import {
 import "./gradebook.css";
 import "@fontsource-variable/manrope";
 
-const studentVue = "https://md-mcps-psv.edupoint.com/PXP2_Login_Student.aspx";
+const studentVue = "https://md-mcps-psv.edupoint.com/PXP2_GradeBook.aspx?AGU=0";
 const percent = (n: number | null) =>
   n === null ? "—" : `${Number(n.toFixed(2))}%`;
 // Use the same MCPS scale for course letters, category bars and score colors.
@@ -121,6 +121,10 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   const [username, setUsername] = useState(""),
     [password, setPassword] = useState(""),
     [remember, setRemember] = useState(true);
+  const [connectMethod, setConnectMethod] = useState<"api" | "browser-session">(
+    "api",
+  );
+  const [sessionCookie, setSessionCookie] = useState("");
   const [showConnect, setShowConnect] = useState(false),
     [query, setQuery] = useState("");
   const [sort, setSort] = useState("schedule");
@@ -232,6 +236,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
       setShowConnect(false);
       setPassword("");
       setUsername("");
+      setSessionCookie("");
     } catch (e) {
       if (!active.current) return;
       setError(e instanceof Error ? e.message : "Could not load your grades.");
@@ -254,6 +259,12 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   };
   const connect = async (event: FormEvent) => {
     event.preventDefault();
+    if (connectMethod === "browser-session") {
+      const cookie = sessionCookie;
+      setSessionCookie("");
+      await run("gradebook/connect-session", { cookie });
+      return;
+    }
     const credentials = {
       username,
       password,
@@ -458,44 +469,122 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
             <h3 ref={connectHeading} tabIndex={-1}>
               Connect StudentVUE
             </h3>
-            <p>Use your MCPS student ID and StudentVUE password.</p>
+            <p>
+              {connectMethod === "api"
+                ? "Use your MCPS student ID and StudentVUE password."
+                : "Use your own signed-in StudentVUE website session. This new connection still needs live testing."}
+            </p>
             {connection?.canConnect ? (
               <form onSubmit={(e) => void connect(e)}>
-                <label className="field-label" htmlFor="sv-username">
-                  Student ID
-                  <input
-                    id="sv-username"
-                    name="username"
-                    autoComplete="username"
-                    maxLength={128}
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                  />
+                <label className="field-label" htmlFor="sv-method">
+                  Connection method
+                  <select
+                    id="sv-method"
+                    value={connectMethod}
+                    onChange={(e) => {
+                      setConnectMethod(
+                        e.target.value as "api" | "browser-session",
+                      );
+                      setPassword("");
+                      setSessionCookie("");
+                    }}
+                  >
+                    <option value="api">Student ID and password</option>
+                    <option value="browser-session">
+                      Browser session (Google sign-in) · Beta
+                    </option>
+                  </select>
                 </label>
-                <label className="field-label" htmlFor="sv-password">
-                  StudentVUE password
-                  <input
-                    id="sv-password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    maxLength={1024}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </label>
-                {connection.canRemember && (
-                  <label className="check-label gb-remember">
-                    <input
-                      type="checkbox"
-                      name="remember"
-                      checked={remember}
-                      onChange={(e) => setRemember(e.target.checked)}
-                    />{" "}
-                    Keep me signed in on this device
-                  </label>
+                {connectMethod === "browser-session" ? (
+                  <>
+                    <label className="field-label" htmlFor="sv-session">
+                      StudentVUE session cookie
+                      <input
+                        id="sv-session"
+                        type="password"
+                        autoComplete="off"
+                        spellCheck={false}
+                        maxLength={6020}
+                        required
+                        value={sessionCookie}
+                        onChange={(e) => setSessionCookie(e.target.value)}
+                      />
+                    </label>
+                    <details className="gb-session-help">
+                      <summary>How to get your session cookie</summary>
+                      <ol>
+                        <li>
+                          On a personal computer, sign in to the official
+                          StudentVUE website with Google.
+                        </li>
+                        <li>
+                          Open your browser’s developer tools, choose Network,
+                          then reload the StudentVUE Grade Book page.
+                        </li>
+                        <li>
+                          Select the PXP2_Gradebook.aspx request to
+                          md-mcps-psv.edupoint.com. Under Request Headers, copy
+                          the Cookie value.
+                        </li>
+                        <li>
+                          Paste it only in this private field in your Better
+                          Canvas app. It must be a StudentVUE cookie, not a
+                          Google cookie.
+                        </li>
+                      </ol>
+                      <p>
+                        The cookie acts as your StudentVUE sign-in. It stays in
+                        server memory for up to one hour and is cleared when you
+                        disconnect. MCPS may expire it sooner. You’ll need to
+                        replace it to reconnect; it cannot renew your Google
+                        sign-in.
+                      </p>
+                    </details>
+                    <p className="gb-privacy">
+                      This connection reads course grades and assignment scores
+                      from the website. Category calculations, the class
+                      countdown, and grading-period dates are not supported yet.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <label className="field-label" htmlFor="sv-username">
+                      Student ID
+                      <input
+                        id="sv-username"
+                        name="username"
+                        autoComplete="username"
+                        maxLength={128}
+                        required
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                      />
+                    </label>
+                    <label className="field-label" htmlFor="sv-password">
+                      StudentVUE password
+                      <input
+                        id="sv-password"
+                        name="password"
+                        type="password"
+                        autoComplete="current-password"
+                        required
+                        maxLength={1024}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    </label>
+                    {connection.canRemember && (
+                      <label className="check-label gb-remember">
+                        <input
+                          type="checkbox"
+                          name="remember"
+                          checked={remember}
+                          onChange={(e) => setRemember(e.target.checked)}
+                        />{" "}
+                        Keep me signed in on this device
+                      </label>
+                    )}
+                  </>
                 )}
                 <button
                   className="button primary"
@@ -504,7 +593,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                 >
                   <LockKeyhole size={16} /> Connect securely
                 </button>
-                {connection.remembered && (
+                {connectMethod === "api" && connection.remembered && (
                   <button
                     className="text-button"
                     type="button"
@@ -514,11 +603,14 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                     <RefreshCw size={14} /> Try my saved sign-in again
                   </button>
                 )}
-                <p className="gb-privacy">
-                  {connection.canRemember && remember
-                    ? "Your sign-in is encrypted and saved in a secure cookie on this device for 30 days, so the gradebook reconnects when you reopen the app. Disconnecting or signing out forgets it. Grades are not saved for offline use."
-                    : "Your credentials stay in server memory for up to one hour, then are cleared. Disconnecting or signing out clears them sooner. Grades are not saved for offline use."}
-                </p>
+                {connectMethod === "api" && (
+                  <p className="gb-privacy">
+                    StudentVUE sign-in uses GradeDurian by default, or the connection selected by your server settings. {" "}
+                    {connection.canRemember && remember
+                      ? "Your sign-in is encrypted and saved in a secure cookie on this device for 30 days, so the gradebook reconnects when you reopen the app. Disconnecting or signing out forgets it. Grades are not saved for offline use."
+                      : "Your credentials stay in server memory for up to one hour, then are cleared. Disconnecting or signing out clears them sooner. Grades are not saved for offline use."}
+                  </p>
+                )}
               </form>
             ) : (
               <div className="gb-setup-note">
@@ -721,6 +813,12 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
           <p className="gb-footnote">
             <ShieldCheck size={14} />{" "}
             {sample ? "Demo only" : "Reported grades from StudentVUE / Synergy"}{" "}
+            {!sample && connection?.method === "browser-session" && (
+              <span>
+                · Browser session · Category calculations and the class
+                countdown are unavailable.
+              </span>
+            )}
             {hasCalculatedLetters && (
               <span>
                 · Letters are calculated from percentages when StudentVUE has
