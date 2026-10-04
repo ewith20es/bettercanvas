@@ -20,9 +20,7 @@ services:
         sync: false
       - key: APP_SECRET
         generateValue: true
-      - key: STUDENTVUE_RELAY_URL
-        value: https://studentvue-relay.ezsmile331.workers.dev/fulfillAxios
-      - key: STUDENTVUE_RELAY_TOKEN
-        sync: false
+      - key: STUDENTVUE_PROXY_PROVIDER
+        value: gradedurian
 # APP_ORIGIN automatically uses RENDER_EXTERNAL_URL.
 # Add APP_ORIGIN explicitly if using a custom domain.

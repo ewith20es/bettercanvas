@@ -1,6 +1,6 @@
 # Better Canvas — current project context
 
-Last updated: **October 1, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
+Last updated: **October 4, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
 and [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## Purpose and stack
@@ -22,6 +22,13 @@ optional Canvas offline storage. One Render web service serves frontend and API.
   and Render state before treating this dated snapshot as current.
 
 ## Current work and verification
+
+October 4: user requested restoring GradeDurian's now-responsive proxy. Code defaults
+to GradeDurian, ignoring old private relay variables unless
+`STUDENTVUE_PROXY_PROVIDER=private`. No new secret needed. 137 tests, typecheck/build
+passed; credential-free endpoint probe succeeded, live MCPS sign-in unverified.
+This switch is local, not deployed. Earlier assignment changes were committed and
+pushed as `d5afa1c` October 1; their deployment was not verified.
 
 October 1 local change: past-due, unsubmitted, ungraded work (including paper,
 external tools and unknown submission data) shows Missing and counts toward its

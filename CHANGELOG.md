@@ -4,6 +4,17 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-04 — Restore GradeDurian proxy
+
+- At the user's request, student-ID/password sign-in defaults to GradeDurian again.
+  Preserved parsers, remembered sign-in, browser-session beta and newer UI fixes.
+- Old private relay variables are ignored by default and its bearer token is never
+  sent to GradeDurian. Explicit `STUDENTVUE_PROXY_PROVIDER=private` retains the Worker option.
+- Updated setup and credential-flow text. No new Render secret is required.
+- Credential-free POST reached GradeDurian's route (HTTP 200, Missing data).
+  137 tests, typecheck and build passed. Live MCPS authentication unverified;
+  local changes, not yet deployed.
+
 ## 2026-10-01 — Past-due Missing and submitted-in-person marks
 
 - Past-due work without a submission or grade now shows Missing, including paper,

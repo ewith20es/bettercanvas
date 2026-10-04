@@ -5,6 +5,7 @@ import {
   parseTodaySchedule,
   SynergyClient,
   SynergyError,
+  GRADEDURIAN_PROXY,
 } from "../apps/server/src/synergy";
 import { demoGradebook } from "../packages/domain/src/gradebook-demo";
 import {
@@ -302,6 +303,22 @@ describe("Synergy gradebook normalization", () => {
       { url: "https://relay.example/fulfillAxios", token: "test-relay-token" },
     );
     await expect(client.gradebook()).rejects.toThrow("unreadable response");
+  });
+  it("uses GradeDurian by default without leaking private relay settings", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () =>
+      new Response(JSON.stringify({ status: true, response: multiWebEnvelope(fixture) })),
+    );
+    await new SynergyClient("synthetic-student", "synthetic-password", fetcher).gradebook();
+    await new SynergyClient("synthetic-student", "synthetic-password", fetcher, {
+      provider: "gradedurian", url: "https://private.example/fulfillAxios", token: "private-worker-secret",
+    }).gradebook();
+    for (const [url, options] of fetcher.mock.calls) {
+      expect(url).toBe(GRADEDURIAN_PROXY);
+      expect(new Headers(options?.headers).has("Authorization")).toBe(false);
+      expect(options?.redirect).toBe("error");
+      expect(String(options?.body)).not.toContain("private-worker-secret");
+      expect(JSON.parse(String(options?.body)).url).toBe("https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx");
+    }
   });
   it("does not transmit credentials without a complete HTTPS relay configuration", async () => {
     const fetcher = vi.fn<typeof fetch>();

@@ -605,6 +605,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                 )}
                 {connectMethod === "api" && (
                   <p className="gb-privacy">
+                    StudentVUE sign-in passes through the configured proxy (GradeDurian by default) to MCPS. {" "}
                     {connection.canRemember && remember
                       ? "Your sign-in is encrypted and saved in a secure cookie on this device for 30 days, so the gradebook reconnects when you reopen the app. Disconnecting or signing out forgets it. Grades are not saved for offline use."
                       : "Your credentials stay in server memory for up to one hour, then are cleared. Disconnecting or signing out clears them sooner. Grades are not saved for offline use."}

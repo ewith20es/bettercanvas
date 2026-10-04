@@ -1,6 +1,6 @@
 # StudentVUE connection handoff
 
-Updated September 25, 2026. This records implementation evidence and unresolved
+Updated October 4, 2026. This records implementation evidence and unresolved
 work, not a claim that every connection works with a live account.
 
 ## User requirements and evidence
@@ -12,7 +12,22 @@ work, not a claim that every connection works with a live account.
 - User confirmed MangoGrade successfully loads their own MCPS grades using student
   ID/password. They have no source link, but report it uses cookies. Automatic login
   must not be declared impossible merely because our current SOAP call fails.
-- GradeDurian's owners took down its proxy. Do not restore that dependency.
+- GradeDurian's proxy was previously taken down. On October 4 the user reported
+  it working again and explicitly requested switching back, superseding the prior
+  owner-only relay decision.
+
+## October 4 provider switch
+
+The default is again `https://cloudproxy.gradedurian.workers.dev/fulfillAxios`.
+No bearer token is sent to GradeDurian, even if old private Worker settings remain.
+`STUDENTVUE_PROXY_PROVIDER=private` explicitly selects the owner's authenticated
+Worker; otherwise GradeDurian is used, without automatic fallback. Credentials
+pass through the selected proxy to MCPS. Browser-session beta is unchanged.
+
+A credential-free POST returned HTTP 200 with `status:false` / `Missing data`,
+confirming the route responds, not that MCPS authentication succeeds. 137 tests,
+typecheck and production build passed. Local switch not yet deployed or verified
+with a live account. The historical investigation below predates this restoration.
 
 ## Implemented paths
 

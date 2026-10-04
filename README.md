@@ -40,7 +40,7 @@ date in Better Canvas afterward. No frontend key or extra environment variable i
 
 ## Connect StudentVUE / Synergy grades
 
-The student-ID/password connection uses your own authenticated Cloudflare Worker to relay StudentVUE requests. Configure `STUDENTVUE_RELAY_URL` and `STUDENTVUE_RELAY_TOKEN` on the server; there is no fallback to a third-party proxy. See [Worker setup](workers/studentvue-relay/README.md). MCPS may return `UPD5304` ("update your app"); hosting a relay does not guarantee that MCPS accepts the request, and that error is shown separately from a relay outage.
+The student-ID/password connection uses GradeDurian's proxy by default at `https://cloudproxy.gradedurian.workers.dev/fulfillAxios`, as requested October 4. Credentials pass through GradeDurian to MCPS. No new Render secret is needed. Old private relay settings are ignored unless you explicitly set `STUDENTVUE_PROXY_PROVIDER=private`; then configure `STUDENTVUE_RELAY_URL` and `STUDENTVUE_RELAY_TOKEN` using [Worker setup](workers/studentvue-relay/README.md). There is no automatic fallback between providers. A responding proxy does not guarantee successful MCPS authentication.
 
 ### Browser-session connection (beta)
 
@@ -60,7 +60,7 @@ To connect with the mobile API (if MCPS accepts it):
 2. Sign in to Better Canvas, open **Gradebook**, and enter your MCPS student ID and StudentVUE password directly in the app. Do not send credentials in chat or commit them to GitHub.
 3. Choose a grading period and select a course to see its reported grade, categories, assignments, points, and teacher notes. Courses appear in StudentVUE period order. Use **Refresh grades** to check again.
 
-All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. For the student-ID/password method, the backend builds the StudentVUE SOAP request for `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` and sends it over HTTPS through your configured Worker to Synergy. StudentVUE credentials pass through your Render server and Cloudflare Worker in transit. Canvas remains the source for the separate assignment/submission views.
+All gradebook data comes from **StudentVUE / Synergy**, never from Canvas. For the student-ID/password method, the backend builds the StudentVUE SOAP request for `https://md-mcps-psv.edupoint.com/Service/PXPCommunication.asmx` and sends it over HTTPS through GradeDurian (or your explicitly selected private Worker) to Synergy. StudentVUE credentials pass through your Render server and the selected proxy in transit. Canvas remains the source for the separate assignment/submission views.
 
 StudentVUE requires credentials with each request. The live connection is held in server memory for **one hour**, scoped to your signed-in app session; a cleanup timer removes expired connections within 30 seconds.
 
@@ -101,8 +101,9 @@ Set these in Render's Environment panel:
 | `CANVAS_ACCESS_TOKEN`    | Your own Canvas token; enter directly in Render                                                                                 |
 | `APP_PASSWORD`           | A separate strong app passphrase, at least 8 characters                                                                         |
 | `APP_SECRET`             | Optional. 32+ random characters that sign app sessions and encrypt saved StudentVUE sign-ins, in addition to `APP_PASSWORD`.    |
-| `STUDENTVUE_RELAY_URL`   | `https://studentvue-relay.ezsmile331.workers.dev/fulfillAxios`                                                                  |
-| `STUDENTVUE_RELAY_TOKEN` | The same private value as the Worker's `RELAY_TOKEN` secret. Required for the student-ID/password method only.                  |
+| `STUDENTVUE_PROXY_PROVIDER` | Optional: `gradedurian` (default), or `private` to use your own Worker. |
+| `STUDENTVUE_RELAY_URL` | Only for private mode: your HTTPS Worker URL ending in `/fulfillAxios`. |
+| `STUDENTVUE_RELAY_TOKEN` | Only for private mode: the same private value as the Worker's `RELAY_TOKEN`. Never sent to GradeDurian. |
 | `APP_ORIGIN`             | Optional for the default Render address; required for a custom domain. Use the exact HTTPS app origin without a trailing slash. |
 
 The backend automatically uses `RENDER_EXTERNAL_URL` for the standard Render address and listens on Render's assigned `PORT`. It serves the React build and `/api` from the same origin. Do not prefix secrets with `VITE_`.

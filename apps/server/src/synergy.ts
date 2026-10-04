@@ -9,10 +9,11 @@ import type {
 } from "../../../packages/domain/src/gradebook";
 
 export const STUDENTVUE_ORIGIN = "https://md-mcps-psv.edupoint.com";
-// Use the owner's authenticated relay. Moving the request to a Worker does
-// not guarantee MCPS accepts it; preserve Synergy's UPD5304 error below.
+// GradeDurian is the user-requested default. Private relay remains opt-in.
+// Transport availability does not guarantee MCPS accepts authentication.
 const district = `${STUDENTVUE_ORIGIN}/Service/PXPCommunication.asmx`;
-export type SynergyRelay = { url?: string; token?: string };
+export const GRADEDURIAN_PROXY = "https://cloudproxy.gradedurian.workers.dev/fulfillAxios";
+export type SynergyRelay = { provider?: "gradedurian"; url?: string; token?: string };
 const maxBytes = 8 * 1024 * 1024;
 export class SynergyError extends Error {
   constructor(
@@ -319,7 +320,7 @@ export class SynergyClient implements GradebookClient {
     private username: string,
     private password: string,
     private request: typeof fetch = fetch,
-    private relayConfig: SynergyRelay = {},
+    private relayConfig: SynergyRelay = { provider: "gradedurian" },
   ) {}
   dispose() {
     this.username = "";
@@ -350,8 +351,11 @@ export class SynergyClient implements GradebookClient {
         "Reconnect StudentVUE to refresh your grades.",
         409,
       );
-    const { url, token } = this.relayConfig;
-    if (!url || !token?.trim())
+    const gradedurian = this.relayConfig.provider === "gradedurian";
+    // Never forward the private Worker's bearer token to the public proxy.
+    const url = gradedurian ? GRADEDURIAN_PROXY : this.relayConfig.url;
+    const token = gradedurian ? undefined : this.relayConfig.token;
+    if (!url || (!gradedurian && !token?.trim()))
       throw new SynergyError(
         "StudentVUE relay is not configured. Set STUDENTVUE_RELAY_URL and STUDENTVUE_RELAY_TOKEN on the server.",
         503,
@@ -389,14 +393,16 @@ export class SynergyClient implements GradebookClient {
         signal: AbortSignal.timeout(25000),
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...(!gradedurian ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: requestBody,
       });
       if (response.status === 401 || response.status === 403) {
         await response.body?.cancel();
         throw new SynergyError(
-          "StudentVUE relay rejected its access token. Match STUDENTVUE_RELAY_TOKEN in Render to RELAY_TOKEN in Cloudflare.",
+          gradedurian
+            ? "GradeDurian's proxy rejected the request. Please try again later."
+            : "StudentVUE relay rejected its access token. Match STUDENTVUE_RELAY_TOKEN in Render to RELAY_TOKEN in Cloudflare.",
           503,
         );
       }
