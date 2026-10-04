@@ -120,7 +120,8 @@ function assignmentFrom(a: JsonObject, fallback: number): GradeAssignment {
     due: date(a.dueDate),
     assigned: date(a.date),
     score,
-    earned: numeric(a.score) ?? numeric(split?.[1]),
+    earned: numeric(a.score) ?? numeric(split?.[1]) ??
+      (/^0(?:\.0+)?\s*%$/.test(score) ? 0 : null),
     possible,
     notes,
     excluded,

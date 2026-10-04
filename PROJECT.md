@@ -23,6 +23,10 @@ optional Canvas offline storage. One Render web service serves frontend and API.
 
 ## Current work and verification
 
+Latest local fix: standalone StudentVUE Score 0/0% now populates earned=0 when
+the points numerator is absent, so the gradebook displays 0 instead of NG.
+185 tests, typecheck and build passed. Not pushed or deployed.
+
 October 4 merge: preserved remote commit `67c5878` (direct mobile client and session
 fixes) alongside the requested GradeDurian default. Use
 `STUDENTVUE_PROXY_PROVIDER=mobile` to select direct MCPS, `private` for the owner's

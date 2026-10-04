@@ -4,6 +4,14 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-04 — Preserve standalone zero assignment scores
+
+- Fixed StudentVUE parsing when Score reports 0/0% but Points lacks an earned
+  numerator. The gradebook now receives earned=0 and displays 0 instead of NG.
+- Applied the zero fallback to SOAP, website-session and mobile clients; preserved
+  explicit points and left blank/ungraded scores and nonzero percentages unknown.
+- All 185 tests, typecheck and production build passed. Local fix, not deployed.
+
 ## 2026-10-04 — Merge Claude into main and move active editing
 
 - Merged the latest remote Claude history, the requested GradeDurian restoration,

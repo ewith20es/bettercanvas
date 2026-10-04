@@ -38,6 +38,16 @@ const fixture = `<Gradebook Type="Traditional" ErrorMessage="" HidePercentSecond
 </Assignments></Mark></Marks></Course><Course Period="0" Title="Homeroom" Room="332"><Marks/></Course></Courses></Gradebook>`;
 
 describe("Synergy gradebook normalization", () => {
+  it.each(["0", "0.00", "0%", "0.00%"])("preserves reported %s without a points numerator", (score) => {
+    const xml = fixture.replace('Points="0 / 20" Score="0%"', `Points="20" Score="${score}"`);
+    const assignment = parseGradebook(envelope(xml)).courses[1].marks[0].assignments[0];
+    expect(assignment).toMatchObject({ earned: 0, possible: 20, score });
+    expect(hasGradeScore(assignment)).toBe(true);
+  });
+  it.each(["", "Not Graded", "Missing", "50%"])("does not invent points from %s", (score) => {
+    const xml = fixture.replace('Points="0 / 20" Score="0%"', `Points="20" Score="${score}"`);
+    expect(parseGradebook(envelope(xml)).courses[1].marks[0].assignments[0].earned).toBeNull();
+  });
   it("keeps reported grades, weights, period order, zero scores, ungraded and excused separate", () => {
     const gb = parseGradebook(envelope(fixture));
     expect(gb.source).toBe("synergy");

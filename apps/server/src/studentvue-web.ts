@@ -247,7 +247,7 @@ export function parseWebDetails(html: string, markName: string) {
       due: date(row.DueDate),
       assigned: date(row.AssignedDate),
       score,
-      earned: pair ? numeric(pair[1]) : null,
+      earned: (pair ? numeric(pair[1]) : null) ?? (numeric(score) === 0 ? 0 : null),
       possible,
       notes,
       excluded,

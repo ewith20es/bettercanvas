@@ -224,7 +224,10 @@ export function parseGradebook(
             assigned: date(attr(a, "Date")),
             due: date(attr(a, "DueDate")),
             score,
-            earned: points.length === 2 ? number(points[0]) : null,
+            // A zero score is still a grade even when Points has no numerator.
+            // Do not interpret nonzero percentages as earned points.
+            earned: (points.length === 2 ? number(points[0]) : null) ??
+              (number(score) === 0 ? 0 : null),
             possible: number(points.length === 2 ? points[1] : points[0]),
             notes,
             excluded,

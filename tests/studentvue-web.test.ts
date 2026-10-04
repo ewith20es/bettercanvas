@@ -88,6 +88,10 @@ function transport() {
 }
 
 describe("StudentVUE website parsing", () => {
+  it.each(["0", "0.00%"])("preserves a standalone zero score %s", (score) => {
+    const mark = parseWebDetails(details([{ ...rows[1], GBScore: score }]), "MP1");
+    expect(mark.assignments[0]).toMatchObject({ earned: 0, possible: 20 });
+  });
   it("deduplicates screen and print rows without dropping course metadata", () => {
     const parsed = parseWebOverview(overview());
     expect(parsed.current).toBe("MP1");

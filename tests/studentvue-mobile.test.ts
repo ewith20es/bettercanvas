@@ -85,6 +85,13 @@ function transport() {
 }
 
 describe("modern StudentVUE gradebook parser", () => {
+  it("preserves zero percentages without inventing scores for ungraded work", () => {
+    const data = book();
+    data.traditionalGradebook.courses[0].marks[0].assignments[0].score = "0.00%";
+    const assignments = parseMobileGradebook(data).courses[0].marks[0].assignments;
+    expect(assignments[0].earned).toBe(0);
+    expect(assignments[1].earned).toBeNull();
+  });
   it("keeps a percentage score distinct from earned points", () => {
     const data = book();
     const rows = data.traditionalGradebook.courses[0].marks[0].assignments;
