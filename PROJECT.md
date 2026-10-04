@@ -14,7 +14,7 @@ optional Canvas offline storage. One Render web service serves frontend and API.
 
 - Repository: <https://github.com/ewith20es/bettercanvas>
 - Active branch: `claude/gradebook-synergy-integration-2fbac6`
-- Current local checkout: `C:\Users\hankw\Desktop\better canvas\.claude\worktrees\gradebook-synergy-integration-2fbac6`
+- Current local checkout: `C:\Projects\bettercanvas\.claude\worktrees\gradebook-synergy-integration-2fbac6`
 - The containing `better canvas` checkout is older and separate. Use the active
   checkout explicitly for commands; do not switch/merge the outer checkout automatically.
 - Site: <https://bettercanvas.onrender.com/gradebook>
@@ -53,11 +53,11 @@ courses whose default portal tab was posts/rich content by requesting the assign
 view explicitly. That commit was deployed and passed **130 tests, typecheck, and
 production build**. The user's full live grade load after this fix is **not confirmed**.
 
-**Still unfinished:** fully automatic StudentVUE login with student ID/password.
-MCPS rejects the existing SOAP request with `UPD5304`; the working official website
-does not imply SOAP acceptance. The user confirms MangoGrade loads their own MCPS
-grades with ID/password. Its private upstream login process remains unknown.
-See [connection research and next steps](docs/STUDENTVUE.md) before continuing.
+**Still unverified:** successful MCPS StudentVUE student ID/password authentication
+with the new mobile API. The older SOAP request returns `UPD5304` and is retained
+only as historical code/tests; it is no longer called by app routes. The mobile
+connection does not yet fetch a bell schedule. See
+[connection research and next steps](docs/STUDENTVUE.md) before continuing.
 
 The local browser's old `127.0.0.1:4188` tab is not proof a server is running. That
 temporary synthetic preview was stopped. Normal development uses ports 5173/3001.
@@ -72,7 +72,8 @@ temporary synthetic preview was stopped. Normal development uses ports 5173/3001
 | `apps/server/src/app.ts`, `index.ts` | Fastify setup, app auth, routes, server entry |
 | `apps/server/src/canvas.ts` | Canvas API client |
 | `apps/server/src/gradebook-routes.ts` | StudentVUE connection lifecycle and grade routes |
-| `apps/server/src/synergy.ts` | SOAP client, parsing, relay/error handling |
+| `apps/server/src/studentvue-mobile.ts` | Direct MCPS student token login and mobile JSON gradebook parser |
+| `apps/server/src/synergy.ts` | Shared error/client types and historical SOAP client/parser |
 | `apps/server/src/studentvue-web.ts` | MCPS authenticated website client and parser |
 | `apps/server/src/sessions.ts`, `remember.ts` | App sessions and encrypted remembered StudentVUE credentials |
 | `packages/domain/src/` | Assignment status, schedule matching, grade calculations, demo fixtures |
@@ -113,12 +114,13 @@ Claude branch above; README's generic `main` example is not the live branch reco
 
 Configuration names (never put values here): `APP_PASSWORD` (minimum 8 characters),
 `APP_SECRET`, `CANVAS_ACCESS_TOKEN`, `CANVAS_BASE_URL`, `NODE_ENV`, `NODE_VERSION`,
-`STUDENTVUE_RELAY_URL`, `STUDENTVUE_RELAY_TOKEN`, optional `APP_ORIGIN`.
+optional `APP_ORIGIN`. The app no longer reads `STUDENTVUE_RELAY_URL` or
+`STUDENTVUE_RELAY_TOKEN`; existing deployed values are unused.
 Canvas origin is `https://mcpsmd.instructure.com`. See README and `.env.example` for
 setup; Render normally supplies its external origin.
 
-Cloudflare Worker `studentvue-relay` has secret `RELAY_TOKEN`, matching Render's
+Historical Cloudflare Worker `studentvue-relay` has secret `RELAY_TOKEN`, matching Render's
 `STUDENTVUE_RELAY_TOKEN`. Its configured endpoint is
 `https://studentvue-relay.ezsmile331.workers.dev/fulfillAxios`. A healthy Worker
-does not establish successful StudentVUE login. The browser-session beta connects
-directly to MCPS and requires no additional relay variables.
+does not establish successful StudentVUE login. Both current mobile login and the
+browser-session beta connect directly to MCPS and require no relay variables.

@@ -15,6 +15,29 @@ are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.m
   137 tests, typecheck and build passed. Live MCPS authentication unverified;
   local changes, not yet deployed.
 
+## 2026-10-03 — Use the current MCPS StudentVUE mobile API
+
+- Replaced the app's rejected SOAP/relay connection with direct MCPS
+  `/api/v1/mobile/PXPWebServices/AttemptLogin` student authentication and bearer-token
+  `Gradebook` requests. Removed relay configuration from the app and Render setup.
+  Kept the browser-session beta and historical SOAP/Worker code/tests available.
+- Added a bounded mobile JSON parser for periods, course marks and assignment
+  scores. Reported grades remain unchanged; percentages are distinct from earned
+  points, zero scores remain zero, and unknown weights/totals remain unknown.
+  The modern bell-schedule contract is not established, so the countdown stays hidden.
+- Renew expired bearer tokens once; fixed-origin requests reject redirects, sanitize
+  errors, and clear/abort credentials and tokens on disposal. Authentication-service
+  outages do not erase saved passwords. Disconnect/logout during schedule loading
+  can no longer recreate a remembered sign-in.
+- Restored the absent designated worktree from the remote Claude branch at `d5afa1c`
+  and corrected the local path in PROJECT.md. Outer main was not switched or merged.
+- New protocol evidence: public gradebook-mcp mobile client/parser; MCPS anonymous
+  student-envelope POST returns 401 and GET returns 405. No real or invented account
+  credentials used. Endpoint availability does not verify a live student login.
+- Verification: **172 tests passed**, typecheck and production build passed.
+  Production deployment has not been verified. Real-account MCPS authentication
+  and live payload compatibility still need verification inside the protected app.
+
 ## 2026-10-01 — Past-due Missing and submitted-in-person marks
 
 - Past-due work without a submission or grade now shows Missing, including paper,

@@ -9,7 +9,11 @@ if (canvasOrigin !== "https://mcpsmd.instructure.com")
   throw new Error(
     "This personal app is configured only for https://mcpsmd.instructure.com.",
   );
+const studentvueProvider = process.env.STUDENTVUE_PROXY_PROVIDER ?? "gradedurian";
+if (!["gradedurian", "private", "mobile"].includes(studentvueProvider))
+  throw new Error("STUDENTVUE_PROXY_PROVIDER must be gradedurian, private, or mobile.");
 const app = await buildApp({
+  studentvueProvider: studentvueProvider as "gradedurian" | "private" | "mobile",
   production,
   canvasOrigin,
   token: process.env.CANVAS_ACCESS_TOKEN,

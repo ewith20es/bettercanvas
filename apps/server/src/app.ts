@@ -12,12 +12,8 @@ import { CanvasClient } from "./canvas";
 import { registerGradebook, type SynergyFactory } from "./gradebook-routes";
 import { rememberKey } from "./remember";
 import { sessionAge, SessionStore } from "./sessions";
-import {
-  SynergyClient,
-  SynergyError,
-  type SynergyRelay,
-  type GradebookClient,
-} from "./synergy";
+import { StudentVueMobileClient } from "./studentvue-mobile";
+import { SynergyClient, SynergyError, type SynergyRelay, type GradebookClient } from "./synergy";
 
 export type Config = {
   origin: string;
@@ -26,6 +22,7 @@ export type Config = {
   password?: string;
   /** Optional extra key material (32+ chars) for sessions and saved sign-ins. */
   secret?: string;
+  studentvueProvider?: "gradedurian" | "private" | "mobile";
   studentvueRelay?: SynergyRelay;
   production: boolean;
 };
@@ -128,9 +125,10 @@ export async function buildApp(
     enabled: (config.password?.length ?? 0) >= 8,
     session: (token) => sessions?.verify(token)?.id ?? null,
     revoked: (id) => !!sessions?.isRevoked(id),
-    factory:
-      synergyFactory ??
-      ((u, p) => new SynergyClient(u, p, fetch, config.studentvueRelay)),
+    factory: synergyFactory ?? ((u, p) => config.studentvueProvider === "mobile"
+      ? new StudentVueMobileClient(u, p)
+      : new SynergyClient(u, p, fetch, config.studentvueProvider === "private"
+        ? (config.studentvueRelay ?? {}) : { provider: "gradedurian" })),
     rememberKey: rememberKey(secret, config.password),
     secure: config.production,
     webFactory,

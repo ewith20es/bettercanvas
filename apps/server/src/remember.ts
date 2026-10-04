@@ -8,10 +8,10 @@ import {
 /**
  * "Keep me signed in" for StudentVUE.
  *
- * StudentVUE has no tokens: every request needs the student ID and password.
- * To reconnect after the one-hour connection ends (or after Render restarts
- * the server), the credentials are sealed with AES-256-GCM using a key that
- * only the server knows and handed to the browser as an httpOnly cookie.
+ * The mobile API returns a bearer token held only in server memory. To sign
+ * in again after the one-hour connection ends (or after Render restarts the
+ * server), the credentials are sealed with AES-256-GCM using a key that only
+ * the server knows and handed to the browser as an httpOnly cookie.
  * Page JavaScript cannot read the cookie, the browser only sends it to
  * /api/gradebook, and it is useless without a signed-in app session, because
  * every gradebook route already requires one.

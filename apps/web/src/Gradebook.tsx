@@ -51,7 +51,7 @@ import {
 import "./gradebook.css";
 import "@fontsource-variable/manrope";
 
-const studentVue = "https://md-mcps-psv.edupoint.com/PXP2_Login_Student.aspx";
+const studentVue = "https://md-mcps-psv.edupoint.com/PXP2_GradeBook.aspx?AGU=0";
 const percent = (n: number | null) =>
   n === null ? "—" : `${Number(n.toFixed(2))}%`;
 // Use the same MCPS scale for course letters, category bars and score colors.
@@ -471,7 +471,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
             </h3>
             <p>
               {connectMethod === "api"
-                ? "Use your MCPS student ID and StudentVUE password."
+                ? "Use your MCPS student ID and StudentVUE password. Better Canvas connects directly to MCPS."
                 : "Use your own signed-in StudentVUE website session. This new connection still needs live testing."}
             </p>
             {connection?.canConnect ? (

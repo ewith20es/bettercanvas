@@ -12,7 +12,8 @@ import {
   seal,
   unseal,
 } from "./remember";
-import { SynergyClient, SynergyError, type GradebookClient } from "./synergy";
+import { SynergyError, type GradebookClient } from "./synergy";
+import { StudentVueMobileClient } from "./studentvue-mobile";
 import { normalizeSessionCookie, StudentVueWebClient } from "./studentvue-web";
 
 export type SynergyFactory = (
@@ -130,7 +131,7 @@ export function registerGradebook(
     const c: Connection = {
       client:
         webClient ??
-        (options.factory ?? ((u, p) => new SynergyClient(u, p)))(
+        (options.factory ?? ((u, p) => new StudentVueMobileClient(u, p)))(
           username,
           password,
         ),
@@ -155,6 +156,7 @@ export function registerGradebook(
       } catch {
         /* countdown stays hidden */
       }
+      assertActive(key, c);
     } catch (e) {
       if (connections.get(key) === c) forget(key);
       throw e;
@@ -183,19 +185,15 @@ export function registerGradebook(
         .strict()
         .safeParse(req.body);
       if (!parsed.success)
-        return reply
-          .code(400)
-          .send({
-            error:
-              "Paste your StudentVUE session cookie in the private connection field.",
-          });
+        return reply.code(400).send({
+          error:
+            "Paste your StudentVUE session cookie in the private connection field.",
+        });
       const cookie = normalizeSessionCookie(parsed.data.cookie);
       if (get(key)?.busy)
-        return reply
-          .code(409)
-          .send({
-            error: "A StudentVUE request is still running. Please wait.",
-          });
+        return reply.code(409).send({
+          error: "A StudentVUE request is still running. Please wait.",
+        });
       // A browser session is never put in a saved-sign-in cookie or local storage.
       // Explicitly switching modes also forgets the old API sign-in.
       forgetLogin(reply);
