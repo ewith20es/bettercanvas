@@ -23,6 +23,12 @@ optional Canvas offline storage. One Render web service serves frontend and API.
 
 ## Current work and verification
 
+Latest user confirmation (October 4): direct mobile StudentVUE login works for
+their MCPS account after discussing `STUDENTVUE_PROXY_PROVIDER=mobile` on Render.
+This supersedes earlier mobile-login uncertainty below. Verification is user-reported;
+the live environment and every grade field have not been independently audited.
+Keep mobile selected for their deployment; do not revert it to the default proxy.
+
 Latest local fix: standalone StudentVUE Score 0/0% now populates earned=0 when
 the points numerator is absent, so the gradebook displays 0 instead of NG.
 185 tests, typecheck and build passed. Not pushed or deployed.

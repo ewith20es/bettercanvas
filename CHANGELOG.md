@@ -4,6 +4,12 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-04 — User confirms direct mobile login works
+
+- User confirmed successful MCPS mobile login after the Render provider selection
+  discussion. Recorded this as user-reported live success, superseding the earlier
+  authentication blocker. No provider setting or application code changed here.
+
 ## 2026-10-04 — Preserve standalone zero assignment scores
 
 - Fixed StudentVUE parsing when Score reports 0/0% but Points lacks an earned

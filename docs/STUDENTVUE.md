@@ -5,6 +5,12 @@ work, not a claim that every connection works with a live account.
 
 ## User requirements and evidence
 
+- October 4: user confirms Better Canvas's direct mobile login works for their MCPS
+  account after selecting/discussing mobile mode. This supersedes historical notes
+  calling successful mobile authentication unverified. It is user-reported success,
+  not an independent audit of Render settings or all grade payloads. Mobile mode
+  does not fall back to GradeDurian and requires no manual cookie copying.
+
 - Grades must come from StudentVUE/Synergy, never Canvas.
 - User normally signs into official MCPS StudentVUE with Google, uses a restricted
   school device, and cannot install a browser extension.

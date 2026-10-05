@@ -25,8 +25,10 @@
   grades still get a calculated letter/color; preserve the reported percentage.
 - What-if calculations are estimates, never official grades or GPA. Unknown scores
   and weights must not become invented values or zeroes.
-- Automatic StudentVUE student-ID/password sign-in remains a requested feature.
-  Manual cookie entry is a temporary beta, not completion of that request.
+- User confirmed direct mobile StudentVUE student-ID/password sign-in works on
+  October 4. Preserve their mobile deployment selection; manual cookie entry is
+  only an alternative beta. Do not repeat the old automatic-login investigation
+  unless a new failure warrants it.
 - The user uses a restricted school device and cannot install an extension.
 
 ## Engineering and privacy
