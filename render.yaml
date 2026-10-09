@@ -7,6 +7,9 @@ services:
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
+    # Copies made with the Deploy to Render button only update when their owner
+    # clicks Manual Deploy, so a push here never changes someone else's site.
+    autoDeployTrigger: off
     envVars:
       - key: NODE_ENV
         value: production
