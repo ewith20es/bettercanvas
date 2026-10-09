@@ -39,7 +39,16 @@ export async function buildApp(
   const origin = new URL(config.origin);
   if (config.production && origin.protocol !== "https:")
     throw new Error("Production APP_ORIGIN must be your exact HTTPS app URL.");
-  const app = Fastify({ logger: false, bodyLimit: 8192, trustProxy: false });
+  // In production (Render) requests arrive through a proxy, so without this
+  // every visitor shares the proxy's address and one person's wrong guesses
+  // lock everyone out of login. Trust only the nearest hop: the client address
+  // comes from the last X-Forwarded-For entry, which that proxy writes itself,
+  // so a visitor cannot spoof a fresh address by sending their own header.
+  const app = Fastify({
+    logger: false,
+    bodyLimit: 8192,
+    trustProxy: config.production ? (_address, hop) => hop === 0 : false,
+  });
   // Register before routes/plugins: Fastify captures the handler on each route.
   app.setErrorHandler((error, _req, reply) => {
     const code =

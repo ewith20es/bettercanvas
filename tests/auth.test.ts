@@ -98,3 +98,25 @@ it("limits incorrect sign-in attempts", async () => {
     await app.close();
   }
 });
+it("limits login attempts per visitor behind the production proxy", async () => {
+  const app = await buildApp(config, { sync: vi.fn() });
+  const attempt = (forwarded: string) =>
+    app
+      .inject({
+        method: "POST",
+        url: "/api/login",
+        headers: { origin, "x-forwarded-for": forwarded },
+        payload: { password: "wrong" },
+      })
+      .then((r) => r.statusCode);
+  try {
+    for (let i = 0; i < 5; i++) expect(await attempt("203.0.113.1")).toBe(401);
+    expect(await attempt("203.0.113.1")).toBe(429);
+    // A different visitor is not locked out by someone else's guesses.
+    expect(await attempt("203.0.113.2")).toBe(401);
+    // Adding a fake earlier address does not escape the limit.
+    expect(await attempt("198.51.100.9, 203.0.113.1")).toBe(429);
+  } finally {
+    await app.close();
+  }
+});

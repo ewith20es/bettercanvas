@@ -20,7 +20,8 @@ services:
         sync: false
       - key: APP_SECRET
         generateValue: true
+      # Direct MCPS login, confirmed working October 4. Keep in sync with Render.
       - key: STUDENTVUE_PROXY_PROVIDER
-        value: gradedurian
+        value: mobile
 # APP_ORIGIN automatically uses RENDER_EXTERNAL_URL.
 # Add APP_ORIGIN explicitly if using a custom domain.

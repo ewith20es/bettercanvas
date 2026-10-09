@@ -4,6 +4,18 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-09 — Pin mobile provider in render.yaml; per-visitor login limit
+
+- `render.yaml` now sets `STUDENTVUE_PROXY_PROVIDER=mobile`, matching the user's
+  confirmed live setting, so a Blueprint sync cannot switch back to GradeDurian.
+  The code default (GradeDurian when unset) is unchanged.
+- Production now trusts the nearest proxy hop (`trustProxy`), so login and
+  StudentVUE rate limits count each visitor separately instead of sharing
+  Render's proxy address. Added a test for separate buckets and spoofed headers.
+- Not run locally on this checkout (tests/typecheck/build pending); Fastify
+  behavior was checked in a scratch project. Render's exact proxy hop count is
+  unverified. Not committed or deployed.
+
 ## 2026-10-04 — User confirms direct mobile login works
 
 - User confirmed successful MCPS mobile login after the Render provider selection
