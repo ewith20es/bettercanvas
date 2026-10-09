@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Home as HomeIcon,
   LayoutList,
+  LifeBuoy,
   RefreshCw,
   Settings as SettingsIcon,
   ShieldCheck,
@@ -23,6 +24,7 @@ import {
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { Gradebook } from "./Gradebook";
 import { TokenExpiryReminder } from "./TokenExpiry";
+import { SUPPORT_DISCORD_URL } from "./support";
 import type { Assignment, Snapshot } from "../../../packages/domain/src";
 import {
   accountKey,
@@ -334,6 +336,15 @@ export default function App() {
           <span>Your personal Canvas companion</span>
         </div>
         <TokenExpiryReminder date={prefs.canvasTokenExpiry} now={now} />
+        <a
+          className="sidebar-support"
+          href={SUPPORT_DISCORD_URL}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <LifeBuoy size={17} />
+          <span>Support on Discord</span>
+        </a>
         <div className="sidebar-footer">
           <span className="avatar">{data.account.name.slice(0, 1)}</span>
           <div>

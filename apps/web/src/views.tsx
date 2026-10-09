@@ -19,6 +19,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  LifeBuoy,
   LockKeyhole,
   LogOut,
   RefreshCw,
@@ -41,6 +42,7 @@ import {
   type Status,
 } from "../../../packages/domain/src";
 import type { Preferences } from "./data";
+import { SUPPORT_DISCORD_URL } from "./support";
 import { TokenExpirySettings } from "./TokenExpiry";
 import {
   coursePeriod,
@@ -1160,6 +1162,28 @@ export function Settings(
             </div>
           ))}
           {!data.sync.length && <p>No courses have been checked yet.</p>}
+        </div>
+      </section>
+      <section className="settings-card">
+        <div className="settings-title">
+          <LifeBuoy size={20} />
+          <h2>Help & support</h2>
+        </div>
+        <div className="settings-body">
+          <div className="setting-row">
+            <div>
+              <strong>Support Discord</strong>
+              <p>Ask questions, report problems, or suggest features.</p>
+            </div>
+            <a
+              className="button"
+              href={SUPPORT_DISCORD_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Join Discord <ExternalLink size={16} />
+            </a>
+          </div>
         </div>
       </section>
       <section className="settings-card">

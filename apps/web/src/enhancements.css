@@ -60,6 +60,21 @@
 .token-expiry--expired { border-color: #db515b; }
 .token-expiry--expired svg { color: #db515b; }
 .sidebar > .token-expiry { margin-bottom: 16px; }
+.sidebar-support {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.sidebar-support svg { flex-shrink: 0; color: var(--green); }
+.sidebar-support:hover { border-color: var(--green); }
 .sidebar > .token-expiry:hover { border-color: var(--green); }
 .token-expiry-settings { padding: 16px 0; scroll-margin-top: 24px; }
 .token-expiry-form { margin-top: 18px; }
@@ -76,7 +91,8 @@
   font: inherit;
 }
 @media (max-width: 700px) {
-  .sidebar > .token-expiry { display: none; }
+  .sidebar > .token-expiry,
+  .sidebar-support { display: none; }
 }
 .sidebar-footer strong {
   display: block;
