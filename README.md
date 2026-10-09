@@ -2,6 +2,89 @@
 
 A personal, read-only companion for MCPS Canvas assignments and StudentVUE grades. React + TypeScript + Vite frontend, Fastify backend, and an installable PWA. Both parts deploy together as one Render web service.
 
+## Set up your own copy (no downloads or installs)
+
+Better Canvas is for **MCPS students only**. There is no shared Better Canvas website to sign up for. **Each student runs their own private copy** on a free hosting account, so your Canvas key and StudentVUE password stay in your account and nobody else ever sees them. Everything happens in a web browser, so it works on a Chromebook or school laptop.
+
+> [!IMPORTANT]
+> **You must do two things yourself. Nobody can do them for you:**
+>
+> 1. **Generate your own Canvas API key** from your own MCPS Canvas account (Step 1).
+> 2. **Enter your own environment variables** (your settings, like the key and your site password) in your hosting account (Step 3).
+>
+> If either is missing, your site will not show your assignments. It will only show sample data, or refuse to start.
+
+**You need:** about 10 minutes, a free [Render](https://render.com) account, and your MCPS Canvas login.
+
+### Step 1: Generate your Canvas API key
+
+A Canvas API key (Canvas calls it an "access token") is like a library card that lets your Better Canvas site read your own assignments. It can only read; it cannot submit or change anything.
+
+1. Sign in to [MCPS Canvas](https://mcpsmd.instructure.com) in your browser.
+2. Click **Account** (your profile picture, top left), then **Settings**.
+
+   <img src="docs/setup/canvas-key-1-settings.png" alt="Canvas Account menu with Settings highlighted" width="420">
+
+3. Scroll down to **Approved Integrations** and click **+ New Access Token** at the bottom of the list.
+
+   <img src="docs/setup/canvas-key-2-new-token.png" alt="Approved Integrations list with the New Access Token button highlighted" width="520">
+
+4. For **Purpose**, type `Better Canvas`. For **Expiration date**, pick the latest date allowed. **MCPS keys last at most 90 days**, so you will need to make a new one about every three months (see "When your Canvas key expires" below).
+5. Click **Generate Token**.
+
+   <img src="docs/setup/canvas-key-3-form.png" alt="New Access Token form with Purpose and Expiration date" width="520">
+
+6. **Copy the key right away and keep it somewhere private.** Canvas says "Copy this token down now": once you close this window you can never see it again. If you lose it, click **Regenerate Token** (or delete it and make a new one).
+
+   <img src="docs/setup/canvas-key-4-copy.png" alt="Access Token Details showing where the token appears, with the warning to copy it now" width="520">
+
+**Never share your key or paste it into a chat, a message, GitHub, or anywhere except your own Render settings.** Anyone with it can read your Canvas.
+
+### Step 2: Start the deploy
+
+Click this button and sign in to Render (or create a free account):
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ewith20es/bettercanvas)
+
+Render reads this project's `render.yaml` file and prepares a new web service in **your** Render account.
+
+### Step 3: Enter your environment variables
+
+Environment variables are your site's private settings. Render will ask you for the two marked **You enter**. Fill in both before you click deploy.
+
+| Variable | Who fills it in | What to put |
+| --- | --- | --- |
+| `CANVAS_ACCESS_TOKEN` | **You enter** | The Canvas key you copied in Step 1. |
+| `APP_PASSWORD` | **You enter** | A password you make up for **your Better Canvas site**, at least 8 characters. Do **not** reuse your Canvas, Google, or school password. |
+| `APP_SECRET` | Filled in for you | Render generates a random value. Leave it. |
+| `CANVAS_BASE_URL` | Filled in for you | `https://mcpsmd.instructure.com`. Do not change it. |
+| `STUDENTVUE_PROXY_PROVIDER` | Filled in for you | `mobile` (signs in to StudentVUE directly with MCPS). |
+| `NODE_ENV`, `NODE_VERSION` | Filled in for you | Leave as they are. |
+
+You can change any of these later in Render: open your service, then **Environment**, edit the value, and choose **Save and deploy**.
+
+### Step 4: Deploy and sign in
+
+1. Click **Deploy** (Render may call it **Apply**) and wait for the first build to finish. It takes a few minutes.
+2. Open the web address Render shows, something like `https://bettercanvas-xxxx.onrender.com`.
+3. Sign in with your `APP_PASSWORD`.
+4. Open **Courses** and pick each class's **period** so your classes list in your schedule order. If a Canvas course or section name already says the period (like "Period 3"), it is filled in for you. Canvas has no real class schedule, so the rest you set once yourself. Your choices are saved in that browser.
+5. **Optional, for grades:** open **Gradebook** and sign in with your MCPS student ID and StudentVUE password. The Gradebook gets your periods, rooms and bell schedule from StudentVUE automatically.
+6. **Optional, on your phone:** open your site and use **Share → Add to Home Screen** (iPhone) or **Install app** (Android/Chrome).
+
+### Good to know
+
+- **Your site shows "demo" or sample data?** `CANVAS_ACCESS_TOKEN` is missing or wrong. Check Step 3.
+- **Your site will not start?** `APP_PASSWORD` is probably missing or shorter than 8 characters.
+- **First load is slow sometimes.** Render's free plan puts your site to sleep after a while without visitors. The next visit can take up to about a minute while it wakes.
+- **When your Canvas key expires,** make a new one (Step 1), then replace `CANVAS_ACCESS_TOKEN` in Render → **Environment** and choose **Save and deploy**.
+- **Getting updates:** if you want new versions later, first click **Fork** at the top of this GitHub page (needs a free GitHub account), then deploy from your fork instead. Later, click **Sync fork** on your copy and Render rebuilds automatically.
+- **Keep your site address and `APP_PASSWORD` to yourself.** Anyone with both can see your assignments.
+
+If something goes wrong, ask in the [support Discord](https://discord.gg/e7Cwd6YWHU).
+
+The sections below are for developers who want to run or change the code on their own computer.
+
 ## Try it locally
 
 Use Node 24 LTS (22.12 or newer also supported).
@@ -83,7 +166,7 @@ Push this repository to your GitHub repository, then connect it to a Render **We
 | Setting           | Value                                   |
 | ----------------- | --------------------------------------- |
 | Language          | Node                                    |
-| Branch            | claude/gradebook-synergy-integration-2fbac6 |
+| Branch            | main                                    |
 | Region            | Virginia                                |
 | Root directory    | Leave blank                             |
 | Build command     | `npm ci --include=dev && npm run build` |
@@ -101,7 +184,7 @@ Set these in Render's Environment panel:
 | `CANVAS_ACCESS_TOKEN`    | Your own Canvas token; enter directly in Render                                                                                 |
 | `APP_PASSWORD`           | A separate strong app passphrase, at least 8 characters                                                                         |
 | `APP_SECRET`             | Optional. 32+ random characters that sign app sessions and encrypt saved StudentVUE sign-ins, in addition to `APP_PASSWORD`.    |
-| `STUDENTVUE_PROXY_PROVIDER` | Optional: `gradedurian` (default), `private` for your Worker, or `mobile` for direct MCPS token login. |
+| `STUDENTVUE_PROXY_PROVIDER` | `mobile` (set by `render.yaml`) signs in directly with MCPS. Other options: `gradedurian` (the code default when unset) or `private` for your Worker. |
 | `STUDENTVUE_RELAY_URL` | Only for private mode: your HTTPS Worker URL ending in `/fulfillAxios`. |
 | `STUDENTVUE_RELAY_TOKEN` | Only for private mode: the same private value as the Worker's `RELAY_TOKEN`. Never sent to GradeDurian. |
 | `APP_ORIGIN`             | Optional for the default Render address; required for a custom domain. Use the exact HTTPS app origin without a trailing slash. |

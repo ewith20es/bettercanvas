@@ -103,9 +103,10 @@ temporary synthetic preview was stopped. Normal development uses ports 5173/3001
 Home, Assignments, Calendar, Courses, Settings, and Gradebook are implemented.
 Preserve course list/gallery, hidden assignments, combined Missing filter, and the
 Grade Melon grade colors, including calculated letters for percentage-only grades.
-Schedule order is Homeroom, English, Spanish, Photography, Functions, Lunch,
-Physics, Research, Computer Science, AP US History, Advisory. The domain schedule
-module is the source of truth for matching actual course names.
+Courses are ordered by period. As of October 9 no personal timetable is built in:
+`schedule.ts` uses the user's per-course period choice, else a period written in the
+Canvas course/section name, else lists the course last. The app is intended to be
+self-hosted by individual MCPS students (README "Set up your own copy").
 
 ## Run and deploy
 

@@ -4,6 +4,20 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-09 — Per-user schedule, Discord link, self-host README
+
+- Removed the owner's hardcoded class list, periods and rooms from `schedule.ts` so
+  other students can deploy their own copy. Course periods now come from the user's
+  choice on the Courses page, else a period in the Canvas course/section name
+  (Canvas sync now requests `include[]=sections`), else the course is listed last.
+  Existing manual period choices keep working; previously auto-matched courses
+  need a period picked once. Gradebook periods still come from StudentVUE.
+- Added a support Discord link in the sidebar and Settings.
+- README: step-by-step self-hosting guide with a Deploy to Render button, stressing
+  that each student generates their own Canvas key and enters their own variables.
+- Schedule tests run in a scratch project; full test suite, typecheck and build were
+  not run on this checkout. Not committed or deployed.
+
 ## 2026-10-09 — Pin mobile provider in render.yaml; per-visitor login limit
 
 - `render.yaml` now sets `STUDENTVUE_PROXY_PROVIDER=mobile`, matching the user's

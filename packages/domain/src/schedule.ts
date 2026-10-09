@@ -1,70 +1,43 @@
 import type { Course } from "./index";
 
-export const schedule = [
-  { period: 0, name: "Homeroom", room: "332", match: /\bhomeroom\b/ },
-  {
-    period: 1,
-    name: "Hon English 9A",
-    room: "P14",
-    match: /\benglish\s*9\s*a?\b/,
-  },
-  {
-    period: 2,
-    name: "Hon Spanish 3A",
-    room: "163",
-    match: /\bspanish\s*(3\s*a?|iii)\b/,
-  },
-  {
-    period: 3,
-    name: "Photography 1A",
-    room: "004 · Photography",
-    match: /\bphotography\s*1\s*a?\b/,
-  },
-  {
-    period: 4,
-    name: "Mag Functions A",
-    room: "309",
-    match: /\bfunctions\s*a?\b/,
-  },
-  { period: 5, name: "Lunch", room: "Cafeteria", match: /\blunch\b/ },
-  { period: 6, name: "Adv Sci1 Physics DP", room: "215", match: /\bphysics\b/ },
-  {
-    period: 7,
-    name: "Research Exp ProbSolv 1A",
-    room: "211",
-    match: /\bresearch\s+(exp|experimentation|experience)\b|\bprob\s*solv\b/,
-  },
-  {
-    period: 8,
-    name: "Fnd Computer Sci A",
-    room: "328",
-    match: /\bcomputer\s+sci(ence)?\b/,
-  },
-  {
-    period: 9,
-    name: "AP US History A",
-    room: "242",
-    match: /\b(u\s*s|united states)\s+history\b/,
-  },
-  {
-    period: 10,
-    name: "Advisory",
-    room: "342 · Academy Office",
-    match: /\badvisory\b/,
-  },
-];
+/**
+ * Class periods for ordering the Courses page.
+ *
+ * Nothing about any one student's timetable is built in. A course's period
+ * comes from, in order:
+ * 1. the period the user picked for it on the Courses page (saved per
+ *    account on that device; -1 means "not in schedule"), then
+ * 2. a period written in its Canvas course name, code or section name,
+ *    such as "Period 3", "Per. 3" or "P3".
+ * Canvas has no real timetable field, so courses whose names do not say a
+ * period appear last until the user picks one.
+ */
+export const periodOptions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+export type CourseSlot = { period: number; source: "manual" | "canvas" };
+
+const periodPattern = /\b(?:period|per|p)\s*\.?\s*(\d{1,2})\b/i;
+
+/** The period written in Canvas text, if any. */
+export function periodFromCanvas(course: Course): number | undefined {
+  for (const text of [course.name, course.code, ...(course.sections ?? [])]) {
+    const match = periodPattern.exec(text);
+    const period = match ? Number(match[1]) : NaN;
+    if (periodOptions.includes(period)) return period;
+  }
+  return undefined;
+}
 
 export function coursePeriod(
   course: Course,
   overrides: Record<string, number> = {},
-) {
+): CourseSlot | undefined {
   if (Object.hasOwn(overrides, course.id))
-    return schedule.find((s) => s.period === overrides[course.id]);
-  const text = `${course.name} ${course.code}`
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-  return schedule.find((s) => s.match.test(text));
+    return periodOptions.includes(overrides[course.id])
+      ? { period: overrides[course.id], source: "manual" }
+      : undefined;
+  const period = periodFromCanvas(course);
+  return period === undefined ? undefined : { period, source: "canvas" };
 }
 
 export function sortCourses(

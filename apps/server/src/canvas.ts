@@ -49,6 +49,10 @@ const courseSchema = z.object({
   name: z.string(),
   course_code: z.string().optional(),
   workflow_state: z.string().optional(),
+  sections: z
+    .array(z.object({ name: z.string().nullable().optional() }))
+    .nullable()
+    .optional(),
 });
 const profileSchema = z.object({
   id,
@@ -237,7 +241,7 @@ export class CanvasClient {
       );
       courses = (
         await this.all(
-          "/api/v1/courses?enrollment_type=student&enrollment_state=active&per_page=100",
+          "/api/v1/courses?enrollment_type=student&enrollment_state=active&include%5B%5D=sections&per_page=100",
         )
       )
         .map((c) => courseSchema.parse(c))
@@ -245,12 +249,18 @@ export class CanvasClient {
           (c) =>
             c.workflow_state !== "completed" && c.workflow_state !== "deleted",
         )
-        .map((c) => ({
-          id: c.id,
-          name: c.name,
-          code: c.course_code ?? c.name,
-          url: `${this.origin}/courses/${encodeURIComponent(c.id)}`,
-        }));
+        .map((c) => {
+          const sections = (c.sections ?? []).flatMap((s) =>
+            s.name ? [s.name] : [],
+          );
+          return {
+            id: c.id,
+            name: c.name,
+            code: c.course_code ?? c.name,
+            url: `${this.origin}/courses/${encodeURIComponent(c.id)}`,
+            ...(sections.length ? { sections } : {}),
+          };
+        });
     } catch (e) {
       return previous
         ? { ...previous, error: safeError(e) }

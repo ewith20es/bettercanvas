@@ -23,7 +23,14 @@ export type Assignment = {
   locked: boolean;
   submission: Submission | null;
 };
-export type Course = { id: string; name: string; code: string; url: string };
+export type Course = {
+  id: string;
+  name: string;
+  code: string;
+  url: string;
+  /** Canvas section names, which sometimes say the class period. */
+  sections?: string[];
+};
 export type CourseSync = {
   courseId: string;
   successAt: string | null;

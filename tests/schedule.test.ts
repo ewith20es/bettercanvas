@@ -1,37 +1,44 @@
 import { expect, it } from "vitest";
 import {
   coursePeriod,
-  schedule,
+  periodFromCanvas,
   sortCourses,
 } from "../packages/domain/src/schedule";
-const course = (name: string, id = name) => ({
+const course = (name: string, id = name, sections?: string[]) => ({
   id,
   name,
   code: name,
   url: "https://mcpsmd.instructure.com",
+  ...(sections ? { sections } : {}),
 });
-it("sorts all scheduled classes, including period zero, in schedule order", () => {
-  const courses = schedule.map((s) => course(s.name)).reverse();
-  expect(sortCourses(courses).map((c) => coursePeriod(c)?.period)).toEqual([
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-  ]);
+it("reads a period written in the Canvas name, code or section", () => {
+  expect(periodFromCanvas(course("English 9 - Period 3"))).toBe(3);
+  expect(periodFromCanvas(course("Spanish 3A Per. 2"))).toBe(2);
+  expect(periodFromCanvas(course("Physics P6"))).toBe(6);
+  expect(periodFromCanvas(course("Chemistry", "c", ["Section 1", "Period 4"]))).toBe(4);
 });
-it("matches punctuation and Canvas prefixes, leaving unrelated courses last", () => {
+it("does not invent periods from unrelated numbers", () => {
+  expect(periodFromCanvas(course("AP US History A"))).toBeUndefined();
+  expect(periodFromCanvas(course("Photography 1A"))).toBeUndefined();
+  expect(periodFromCanvas(course("English 9 - Period 42"))).toBeUndefined();
+});
+it("sorts by period and leaves courses without one last", () => {
   const courses = [
     course("Other course"),
-    course("2026 AP U.S. History A - Section 2"),
-    course("Hon English 9 A"),
+    course("Math Period 5"),
+    course("English Period 1"),
   ];
   expect(sortCourses(courses).map((c) => c.name)).toEqual([
-    courses[2].name,
-    courses[1].name,
-    courses[0].name,
+    "English Period 1",
+    "Math Period 5",
+    "Other course",
   ]);
-  expect(coursePeriod(course("AP English Language"))).toBeUndefined();
 });
-it("supports manual assignments and an explicit unscheduled override", () => {
+it("lets the user's choice override Canvas, including not in schedule", () => {
   const a = course("Unusual Canvas title", "a"),
-    b = course("Homeroom", "b");
+    b = course("Homeroom Period 0", "b");
   expect(sortCourses([b, a], { a: 1, b: -1 })).toEqual([a, b]);
-  expect(coursePeriod(a, { a: 0 })?.period).toBe(0);
+  expect(coursePeriod(a, { a: 0 })).toEqual({ period: 0, source: "manual" });
+  expect(coursePeriod(b)).toEqual({ period: 0, source: "canvas" });
+  expect(coursePeriod(b, { b: -1 })).toBeUndefined();
 });

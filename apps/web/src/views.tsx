@@ -46,7 +46,8 @@ import { SUPPORT_DISCORD_URL } from "./support";
 import { TokenExpirySettings } from "./TokenExpiry";
 import {
   coursePeriod,
-  schedule,
+  periodFromCanvas,
+  periodOptions,
   sortCourses,
 } from "../../../packages/domain/src/schedule";
 import { useAssignmentTools } from "./webmcp";
@@ -826,8 +827,8 @@ export function Courses(props: ViewProps) {
         </div>
       </div>
       <p className="course-order-note">
-        In schedule order · Unmatched courses appear last. Adjust a course’s
-        period if its Canvas name is different.
+        In period order · Pick each course’s period below. Courses without
+        one appear last.
       </p>
       <div
         className={prefs.courseView === "list" ? "course-list" : "course-grid"}
@@ -880,13 +881,11 @@ export function Courses(props: ViewProps) {
               </div>
               <div className="course-identity">
                 <p className="tiny-label">
-                  {slot
-                    ? `Period ${slot.period} · ${slot.name}`
-                    : "Not in schedule"}
+                  {slot ? `Period ${slot.period}` : "No period set"}
                 </p>
                 <h2>{nameOf(c, prefs)}</h2>
                 <p className="course-room">
-                  {slot ? `Room ${slot.room}` : c.code}
+                  {c.code}
                 </p>
               </div>
               <div className="course-counts">
@@ -926,13 +925,17 @@ export function Courses(props: ViewProps) {
                     updatePrefs({ coursePeriods });
                   }}
                 >
-                  <option value="auto">Automatic match</option>
-                  {schedule.map((s) => (
-                    <option key={s.period} value={s.period}>
-                      {s.period} · {s.name}
+                  <option value="auto">
+                    {periodFromCanvas(c) === undefined
+                      ? "Not set"
+                      : `From Canvas (${periodFromCanvas(c)})`}
+                  </option>
+                  {periodOptions.map((p) => (
+                    <option key={p} value={p}>
+                      Period {p}
                     </option>
                   ))}
-                  <option value="-1">Not in schedule</option>
+                  <option value="-1">No period (list last)</option>
                 </select>
               </label>
               <div className="course-actions">
