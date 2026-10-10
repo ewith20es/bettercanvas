@@ -346,10 +346,16 @@ export default function App() {
           <span>Support on Discord</span>
         </a>
         <div className="sidebar-footer">
-          <span className="avatar">{data.account.name.slice(0, 1)}</span>
+          <span className="avatar" aria-hidden="true">
+            <BookOpenCheck size={16} />
+          </span>
           <div>
-            <strong>{data.demo ? "Demo workspace" : data.account.name}</strong>
-            <small>MCPS · Personal account</small>
+            <strong>{data.demo ? "Demo workspace" : "Canvas connected"}</strong>
+            <small>
+              {data.demo
+                ? "Sample data · add your Canvas key"
+                : "Read-only: courses, assignments, submissions"}
+            </small>
           </div>
         </div>
       </aside>
