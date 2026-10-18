@@ -61,6 +61,12 @@ Environment variables are your site's private settings. On the same Render page,
 | `STUDENTVUE_PROXY_PROVIDER` | Filled in for you | `mobile` (signs in to StudentVUE directly with MCPS). |
 | `NODE_ENV`, `NODE_VERSION` | Filled in for you | Leave as they are. |
 
+StudentVUE mobile mode automatically retrieves a public app compatibility value
+from `https://axum-svue.fly.dev/akey`. That lookup sends no account information;
+your StudentVUE sign-in and grade requests go directly to MCPS. If the public key
+service is unavailable, the gradebook connection cannot refresh. No extra setting
+is required. See [connection details](docs/STUDENTVUE.md).
+
 You can change any of these later in Render: open your service, then **Environment**, edit the value, and choose **Save and deploy**.
 
 ### Step 4: Deploy and sign in

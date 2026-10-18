@@ -1,9 +1,53 @@
 # StudentVUE connection handoff
 
-Updated October 4, 2026. This records implementation evidence and unresolved
+Updated October 18, 2026. This records implementation evidence and unresolved
 work, not a claim that every connection works with a live account.
 
+## October 18 follow-up: Gradr backend identifies the missing header
+
+- Inspected public Gradr bundles at `https://praneel4smob.com/`: login sends Basic
+  auth to `https://axum-svue.fly.dev/grades`, reads `Set-Token`, then uses Bearer
+  for subsequent calls. No account credentials were sent during this investigation.
+- Found its backend's public repository: [Zillorz/svue-api](https://github.com/Zillorz/svue-api).
+  [Migration PR #2](https://github.com/Zillorz/svue-api/pull/2), merged October 18,
+  explicitly says `edupointkeyversion` is required and reports live MCPS testing.
+  Source checked at `cb488e6f824097818562b99aee51ffc8a029cfd2` sends that header
+  on both AttemptLogin and data calls, and uses empty userID/password strings and
+  `userType: "Student"` inside the request envelope. This is stronger evidence
+  than the earlier generic ParentVUE reference and supersedes the unknown-field status below.
+- Its public key provider is `https://axum-svue.fly.dev/akey`. A credential-free
+  GET returned HTTP 200 and a 64-character base64 value; no live value was saved
+  or printed. Better Canvas now looks it up per mobile request, without cookies,
+  Authorization, request body, or account information. Only MCPS receives the
+  student's credentials and bearer token. The lookup is a new third-party
+  availability dependency, not a credential relay. No new environment setting.
+- Local implementation rejects redirects, oversized/invalid key responses and
+  times out after eight seconds. Disconnect aborts lookup and prevents a late
+  response from triggering credential transmission. No cache lifetime is guessed:
+  the upstream reference also fetches per request. Errors never expose key values.
+- MangoGrade's public bundle sends username/password/district to its own `/api/login`
+  and uses same-origin cookies plus a CSRF header. That proves its browser session
+  arrangement, not what its private server sends to MCPS. No public backend found.
+- 202 tests and production build/typecheck passed. User confirmed the local live
+  connection works on October 18 and authorized committing/pushing to main.
+  This is user-reported account success; Render deployment remains unverified.
+
 ## User requirements and evidence
+
+- October 18: user reports a new app/login-key change and the generic account-notice
+  error. The current reference client source still matches our login format; no
+  static replacement key has been identified. Official new-app listing confirms
+  the app exists but supplies no changed authentication contract. Anonymous MCPS
+  AttemptLogin still returns HTTP 401. Do not infer actual credential success.
+- Local diagnostics now report sign-in vs grade loading and short numeric error
+  codes, never raw upstream messages. User now reports `StudentVUE sign-in; UPD5304`
+  from the local app: rejection occurs during AttemptLogin, before grade loading.
+  This does not identify a changed key/header or establish that credentials are wrong.
+  User confirms the new official mobile app works with the same student ID/password.
+  This narrows investigation to differences in the app request or connection context;
+  it does not establish which header/key changed. Need verified request-format
+  evidence. Authentication behavior was not changed.
+  October 4 success is historical.
 
 - October 4: user confirms Better Canvas's direct mobile login works for their MCPS
   account after selecting/discussing mobile mode. This supersedes historical notes
@@ -55,7 +99,8 @@ API, not an attempted permutation of the retired SOAP service.
 
 - `POST AttemptLogin` with HTTPS Basic authentication and inner
   `{userID:null,password:null,userType:"student"}`.
-- Every request wraps its inner JSON in
+- The October 18 follow-up above replaces the login envelope and adds the app header.
+  Every request wraps its inner JSON in
   `{arguments:{request:JSON.stringify(inner)}}`.
 - `POST Gradebook` with the returned `access_token` as a bearer token and inner
   `{reportPeriod:index,childIntID:0,languageCode:"en"}`. No parent-account fallback.

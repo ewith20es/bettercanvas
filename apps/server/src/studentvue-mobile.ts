@@ -12,9 +12,11 @@ import {
   SynergyError,
   type GradebookClient,
 } from "./synergy";
+import { getStudentVueAppKey } from "./studentvue-app-key";
 
 // Current mobile protocol evidence and fixtures:
 // https://github.com/songsterq/gradebook-mcp/tree/main/src/lib/parentvue
+// October 18 required app header/login envelope: https://github.com/Zillorz/svue-api/pull/2
 // This is a separate protocol from the legacy PXPCommunication SOAP service.
 const mobilePath = `${STUDENTVUE_ORIGIN}/api/v1/mobile/PXPWebServices`;
 const maxBytes = 8 * 1024 * 1024;
@@ -230,14 +232,18 @@ export function parseMobileGradebook(
   };
 }
 
-function upstreamError(value: unknown): SynergyError | null {
+function upstreamError(value: unknown, stage: "sign-in" | "grade loading"): SynergyError | null {
   const error = object(value);
   if (!error) return value == null ? null : unreadable();
   const code = text(error.code),
     message = text(error.message);
+  // Only short numeric service codes are safe to show. Never echo free-form
+  // upstream messages or arbitrary code strings (which may contain account data).
+  const reference = /^\d{1,6}$/.test(code) ? `code ${code}` : "unrecognized code";
+  const detail = ` (StudentVUE ${stage}; ${reference})`;
   if (/UPD5304/i.test(`${code} ${message}`))
     return new SynergyError(
-      "MCPS is rejecting this app's StudentVUE connection. The official StudentVUE website may still work.",
+      `MCPS is rejecting this app's StudentVUE connection. The official StudentVUE website may still work. (StudentVUE ${stage}; UPD5304)`,
       503,
     );
   if (
@@ -247,11 +253,11 @@ function upstreamError(value: unknown): SynergyError | null {
     )
   )
     return new SynergyError(
-      "StudentVUE did not accept that sign-in. Check your student ID and password in StudentVUE, then try again.",
+      "StudentVUE did not accept that sign-in. Check your student ID and password in StudentVUE, then try again." + detail,
       422,
     );
   return new SynergyError(
-    "StudentVUE could not open your gradebook. Check StudentVUE for an account notice or try again later.",
+    "StudentVUE could not open your gradebook. Check StudentVUE for an account notice or try again later." + detail,
   );
 }
 
@@ -298,7 +304,7 @@ export class StudentVueMobileClient implements GradebookClient {
       json = await this.post("Gradebook", inner, `Bearer ${this.token}`);
     }
     this.assertConnected();
-    const error = upstreamError(json.error);
+    const error = upstreamError(json.error, "grade loading");
     if (error) throw error;
     return parseMobileGradebook(json.data, period);
   }
@@ -317,14 +323,14 @@ export class StudentVueMobileClient implements GradebookClient {
       const json = await this.post(
         "AttemptLogin",
         {
-          userID: null,
-          password: null,
-          userType: "student",
+          userID: "",
+          password: "",
+          userType: "Student",
         },
         `Basic ${Buffer.from(`${this.username}:${this.password}`, "utf8").toString("base64")}`,
       );
       this.assertConnected();
-      const error = upstreamError(json.error);
+      const error = upstreamError(json.error, "sign-in");
       if (error) throw error;
       if (
         typeof json.access_token !== "string" ||
@@ -352,6 +358,8 @@ export class StudentVueMobileClient implements GradebookClient {
   ): Promise<JsonObject> {
     this.assertConnected();
     try {
+      const appKey = await getStudentVueAppKey(this.lifecycle.signal);
+      this.assertConnected();
       const response = await this.request(`${mobilePath}/${method}`, {
         method: "POST",
         redirect: "manual",
@@ -362,6 +370,7 @@ export class StudentVueMobileClient implements GradebookClient {
         headers: {
           "Content-Type": "application/json",
           Authorization: authorization,
+          edupointkeyversion: appKey,
         },
         body: JSON.stringify({ arguments: { request: JSON.stringify(inner) } }),
       });

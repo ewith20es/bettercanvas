@@ -4,6 +4,11 @@ import {
   parseMobileGradebook,
 } from "../apps/server/src/studentvue-mobile";
 import { STUDENTVUE_ORIGIN } from "../apps/server/src/synergy";
+import { getStudentVueAppKey } from "../apps/server/src/studentvue-app-key";
+
+vi.mock("../apps/server/src/studentvue-app-key", () => ({
+  getStudentVueAppKey: vi.fn(async () => "A".repeat(64)),
+}));
 
 // Fictional, minimal fixtures following the public modern-mobile contract.
 function book() {
@@ -289,6 +294,26 @@ describe("modern StudentVUE gradebook parser", () => {
 });
 
 describe("modern MCPS StudentVUE client", () => {
+  it("does not send student credentials if the app-key lookup fails", async () => {
+    vi.mocked(getStudentVueAppKey).mockRejectedValueOnce(new Error("private lookup detail"));
+    const request = transport();
+    const client = new StudentVueMobileClient("fixture-id", "fixture-password", request);
+    await expect(client.gradebook()).rejects.toThrow("Could not reach StudentVUE");
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("does not send credentials after disconnect during the app-key lookup", async () => {
+    let resolve!: (value: string) => void;
+    vi.mocked(getStudentVueAppKey).mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
+    const request = transport();
+    const client = new StudentVueMobileClient("fixture-id", "fixture-password", request);
+    const pending = client.gradebook();
+    client.dispose();
+    resolve("A".repeat(64));
+    await expect(pending).rejects.toMatchObject({ statusCode: 409 });
+    expect(request).not.toHaveBeenCalled();
+  });
+
   it("does not treat an authentication service outage as a rejected password", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       jsonReply({
@@ -326,12 +351,13 @@ describe("modern MCPS StudentVUE client", () => {
     );
     expect(
       JSON.parse(JSON.parse(String(login?.body)).arguments.request),
-    ).toEqual({ userID: null, password: null, userType: "student" });
+    ).toEqual({ userID: "", password: "", userType: "Student" });
     for (const [url, init] of request.mock.calls) {
       expect(new URL(String(url)).origin).toBe(STUDENTVUE_ORIGIN);
       expect(init?.redirect).toBe("manual");
       expect(String(init?.body)).not.toContain("fixture-password");
       expect(init?.signal).toBeInstanceOf(AbortSignal);
+      expect(new Headers(init?.headers).get("edupointkeyversion")).toBe("A".repeat(64));
     }
     const [, data] = request.mock.calls[2];
     expect(new Headers(data?.headers).get("Authorization")).toBe(
@@ -457,7 +483,7 @@ describe("modern MCPS StudentVUE client", () => {
         JSON.parse(
           JSON.parse(String(request.mock.calls[0][1]?.body)).arguments.request,
         ).userType,
-      ).toBe("student");
+      ).toBe("Student");
     },
   );
 
@@ -479,6 +505,7 @@ describe("modern MCPS StudentVUE client", () => {
     );
     const error = await client.gradebook().catch((e: Error) => e);
     expect(error).toBeInstanceOf(Error);
+    expect(String(error)).toContain("StudentVUE grade loading; code 999");
     expect(String(error)).not.toMatch(
       /fixture-id|fixture-password|fixture-private-token/,
     );
@@ -493,6 +520,20 @@ describe("modern MCPS StudentVUE client", () => {
       "Could not reach StudentVUE",
     );
   });
+
+  it.each(["1234", "fixture-password", "123456789", "<script>private</script>"])(
+    "identifies login failures and restricts displayed error codes: %s", async (code) => {
+      const request = vi.fn<typeof fetch>().mockResolvedValue(jsonReply({
+        error: { code, message: "private account notice" },
+      }));
+      const client = new StudentVueMobileClient("fixture-id", "fixture-password", request);
+      const error = await client.gradebook().catch((e: Error) => e);
+      expect(String(error)).toContain(`StudentVUE sign-in; ${code === "1234" ? "code 1234" : "unrecognized code"}`);
+      expect(String(error)).not.toContain("private account notice");
+      if (code !== "1234") expect(String(error)).not.toContain(code);
+      expect(request).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("keeps a blocked API separate from a credential rejection", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
@@ -574,6 +615,7 @@ describe("modern MCPS StudentVUE client", () => {
       request,
     );
     const pending = client.gradebook();
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(1));
     const signal = request.mock.calls[0][1]?.signal;
     client.dispose();
     expect(signal?.aborted).toBe(true);

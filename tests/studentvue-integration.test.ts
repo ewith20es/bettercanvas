@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildApp } from "../apps/server/src/app";
 
+vi.mock("../apps/server/src/studentvue-app-key", () => ({
+  getStudentVueAppKey: vi.fn(async () => "A".repeat(64)),
+}));
+
 const origin = "https://bettercanvas.example";
 const config = {
   origin,
@@ -108,7 +112,10 @@ describe("optional direct MCPS StudentVUE connection", () => {
         "https://md-mcps-psv.edupoint.com/api/v1/mobile/PXPWebServices/Gradebook",
       ]);
       const request = JSON.parse(String(fetcher.mock.calls[0][1]?.body));
-      expect(JSON.parse(request.arguments.request).userType).toBe("student");
+      expect(JSON.parse(request.arguments.request).userType).toBe("Student");
+      for (const [, init] of fetcher.mock.calls) {
+        expect(new Headers(init?.headers).get("edupointkeyversion")).toBe("A".repeat(64));
+      }
       expect(
         new Headers(fetcher.mock.calls[1][1]?.headers).get("Authorization"),
       ).toBe("Bearer synthetic-private-token");

@@ -1,6 +1,6 @@
 # Better Canvas — current project context
 
-Last updated: **October 4, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
+Last updated: **October 18, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
 and [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## Purpose and stack
@@ -22,6 +22,25 @@ optional Canvas offline storage. One Render web service serves frontend and API.
   and Render state before treating this dated snapshot as current.
 
 ## Current work and verification
+
+October 18 follow-up: found Gradr's public backend `Zillorz/svue-api` and its
+new-app migration PR #2. Added its required `edupointkeyversion` header and updated
+student login envelope. Public app-key lookup goes to `axum-svue.fly.dev/akey`
+without account information; credentials/grade calls still go only to MCPS.
+No new environment variables; keep provider `mobile`. This adds a public key-service
+dependency. 202 tests and production build/typecheck passed. User confirmed the
+local live connection works on October 18 and authorized committing/pushing to
+main. Render deployment remains unverified. See docs/STUDENTVUE.md for evidence.
+
+Earlier October 18 investigation (superseded by the identified header above):
+October 18: user reports mobile login failing with a generic StudentVUE error
+after an app replacement. Current code has no static app key; it exchanges Basic
+credentials for access_token. No new authentication format verified. Added safe
+stage/numeric-code diagnostics locally; 191 tests/typecheck/build passed. User now
+confirms UPD5304 during sign-in, before grade loading, while the new official app
+works with the same credentials. Need verified changed request fields before
+making an authentication edit.
+Earlier October 4 success is historical, not proof of current compatibility.
 
 Latest user confirmation (October 4): direct mobile StudentVUE login works for
 their MCPS account after discussing `STUDENTVUE_PROXY_PROVIDER=mobile` on Render.

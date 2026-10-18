@@ -4,6 +4,40 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-18 — Add new mobile app compatibility header from Gradr evidence
+
+- Public Gradr frontend led to the open-source `Zillorz/svue-api` backend and
+  its October 18 migration PR #2, which identifies required `edupointkeyversion`.
+- Mobile login and grade requests now include the header; login envelope matches
+  the new reference (`Student`, empty userID/password fields, Basic auth header).
+- Added bounded, abortable, credential-free lookup of the public app-key value
+  from the same fixed provider used by that backend. Credentials remain direct
+  to MCPS; dependency on the public lookup is documented. No key hardcoded, no
+  additional environment setting, no credential relay/provider fallback.
+- Tests cover credential separation, malformed/oversized key replies, rotation,
+  cancellation, header placement, and existing session behavior. 202 tests passed
+  outside the Windows sandbox after its temporary-module read error; typecheck
+  and production build passed. User confirmed the local live connection works
+  on October 18 and requested committing/pushing to main. Render deployment unverified.
+- MangoGrade's private server protocol remains
+  unverified; its browser cookies alone do not establish StudentVUE authentication.
+
+## 2026-10-18 — Investigate reported mobile-login change
+
+- User reports the replacement StudentVUE app changed a login key and Better
+  Canvas shows the generic account-notice error. No replacement key/header/field
+  has been verified; do not claim authentication is fixed.
+- Current reference mobile client still uses Basic AttemptLogin and access_token.
+  A single credential-free MCPS request returned HTTP 401; this proves endpoint
+  presence only, not acceptance of an actual student's login.
+- Added failure stage (sign-in vs grade loading) and short numeric service codes
+  to mobile errors, without exposing raw upstream messages or arbitrary code text.
+- 191 tests, typecheck and production build passed. Diagnostics saved locally;
+  authentication unchanged, not deployed. User's local diagnostic now confirms
+  UPD5304 during sign-in; user confirms the new official app works with the same
+  credentials. No verified replacement key found; need the updated request format
+  to finish compatibility work.
+
 ## 2026-10-09 — Per-user schedule, Discord link, self-host README
 
 - Removed the owner's hardcoded class list, periods and rooms from `schedule.ts` so
