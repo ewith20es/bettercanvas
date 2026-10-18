@@ -109,6 +109,7 @@ const urgency = (seconds: number) =>
   seconds < 60 ? "urgent" : seconds < 300 ? "soon" : "";
 
 // Renew a remembered connection this long before the server's hour runs out.
+const autoRefreshEvery = 5 * 60 * 1000;
 const renewEarly = 2 * 60 * 1000;
 
 export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
@@ -197,6 +198,41 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
       active.current = false;
     };
   }, [demoWorkspace]);
+  // Keeps grades current without a click: fetches fresh StudentVUE grades when
+  // the page opens, when the tab comes back into view, and every few minutes
+  // while it stays visible. Failures stay quiet and keep the last grades; the
+  // server's short cache stops these from duplicating a recent request.
+  const connected = !!connection?.connected && !!connection.snapshot;
+  const viewedPeriod = connection?.snapshot?.period.index;
+  const autoRefreshing = useRef(false);
+  useEffect(() => {
+    if (!connected || sample) return;
+    const pull = async () => {
+      if (autoRefreshing.current || document.visibilityState !== "visible")
+        return;
+      autoRefreshing.current = true;
+      try {
+        const c = await api<GradebookConnection>("gradebook/refresh", "POST", {
+          period: viewedPeriod,
+        });
+        if (active.current) setConnection(c);
+      } catch {
+        /* keep the last grades; manual Refresh shows any error */
+      } finally {
+        autoRefreshing.current = false;
+      }
+    };
+    void pull();
+    const timer = setInterval(() => void pull(), autoRefreshEvery);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void pull();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [connected, viewedPeriod, sample]);
   useEffect(() => {
     if (!connection?.expiresAt) return;
     const remembered = connection.remembered;

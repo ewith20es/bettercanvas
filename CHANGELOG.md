@@ -4,6 +4,17 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-18 — Gradebook fetches fresh grades automatically
+
+- The Gradebook showed the grades loaded when the StudentVUE connection started,
+  for up to an hour, until Refresh was clicked. It now fetches fresh grades from
+  StudentVUE (via the selected mobile client) when the page opens, when the tab
+  comes back into view, and every 5 minutes while visible. Failures stay quiet
+  and keep the last grades; the existing 20-second server cache prevents duplicates.
+- Resuming a saved sign-in on a still-healthy connection now re-fetches the
+  current grading period instead of returning the old snapshot.
+- 202 tests (one extended), typecheck and build passed. Not deployed.
+
 ## 2026-10-18 — Add new mobile app compatibility header from Gradr evidence
 
 - Public Gradr frontend led to the open-source `Zillorz/svue-api` backend and
