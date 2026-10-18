@@ -276,6 +276,23 @@ describe("modern StudentVUE gradebook parser", () => {
     );
   });
 
+  it("uses StudentVUE's current period when none is requested", () => {
+    const data = book();
+    Object.assign(data.traditionalGradebook, {
+      reportingPeriod: { gradePeriod: "MP2" },
+    });
+    expect(parseMobileGradebook(data).period).toMatchObject({
+      index: 1,
+      name: "MP2",
+    });
+    vi.useFakeTimers({ now: new Date("2026-12-01T15:00:00Z") });
+    try {
+      expect(parseMobileGradebook(book()).period.name).toBe("MP2");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("rejects malformed, unsupported and excessively large records", () => {
     expect(() => parseMobileGradebook({})).toThrow(
       "not made this gradebook available",
@@ -359,6 +376,12 @@ describe("modern MCPS StudentVUE client", () => {
       expect(init?.signal).toBeInstanceOf(AbortSignal);
       expect(new Headers(init?.headers).get("edupointkeyversion")).toBe("A".repeat(64));
     }
+    // The first load leaves the period out so StudentVUE sends the current one.
+    expect(
+      JSON.parse(
+        JSON.parse(String(request.mock.calls[1][1]?.body)).arguments.request,
+      ),
+    ).toEqual({ childIntID: 0, languageCode: "en" });
     const [, data] = request.mock.calls[2];
     expect(new Headers(data?.headers).get("Authorization")).toBe(
       "Bearer fixture-token",
