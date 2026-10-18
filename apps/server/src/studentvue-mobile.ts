@@ -153,15 +153,26 @@ function categoriesFrom(value: unknown): GradeCategory[] {
     }));
 }
 
-/** Parse the modern Gradebook response's data object; credentials never enter it. */
+/** The period whose dates include today, else the latest one already started. */
+function currentByDate(periods: GradePeriod[], now = new Date()) {
+  const today = now.toISOString().slice(0, 10);
+  const started = periods.filter((p) => p.start && p.start <= today);
+  return (
+    started.find((p) => !p.end || today <= p.end) ?? started.at(-1) ?? null
+  );
+}
+
+/** Parse the modern Gradebook response's data object; credentials never enter it.
+ * Without a requested period, the response's own (current) period is used. */
 export function parseMobileGradebook(
   data: unknown,
-  requestedPeriod = 0,
+  requestedPeriod?: number,
 ): Gradebook {
   if (
-    !Number.isInteger(requestedPeriod) ||
-    requestedPeriod < 0 ||
-    requestedPeriod > 50
+    requestedPeriod !== undefined &&
+    (!Number.isInteger(requestedPeriod) ||
+      requestedPeriod < 0 ||
+      requestedPeriod > 50)
   )
     throw new SynergyError("Choose a valid grading period.", 400);
   const gb = object(object(data)?.traditionalGradebook);
@@ -177,24 +188,43 @@ export function parseMobileGradebook(
   if (new Set(periods.map((p) => p.index)).size !== periods.length)
     throw unreadable();
   const reportedPeriod = object(gb.reportingPeriod);
-  const selected = periods.find((p) => p.index === requestedPeriod);
-  if (
-    (reportedPeriod &&
-      periodFrom(reportedPeriod, requestedPeriod).index !== requestedPeriod) ||
-    (periods.length > 0 && !selected) ||
-    (!periods.length && requestedPeriod !== 0)
-  )
-    throw new SynergyError(
-      "StudentVUE returned a different grading period. Please try selecting the period again.",
-    );
-  const period = reportedPeriod
-    ? periodFrom(reportedPeriod, requestedPeriod)
-    : (selected ?? {
-        index: requestedPeriod,
+  // The reported period may omit its index; find it by name in the list.
+  const reportedIndex = reportedPeriod
+    ? (numeric(reportedPeriod.index) ??
+      periods.find((p) => p.name === text(reportedPeriod.gradePeriod))?.index)
+    : undefined;
+  let period: GradePeriod;
+  if (requestedPeriod === undefined) {
+    // No period asked for: StudentVUE answers with the current one.
+    period =
+      (reportedPeriod && periodFrom(reportedPeriod, reportedIndex ?? 0)) ||
+      currentByDate(periods) || {
+        index: 0,
         name: "Current grading period",
         start: "",
         end: "",
-      });
+      };
+  } else {
+    const selected = periods.find((p) => p.index === requestedPeriod);
+    if (
+      (reportedPeriod &&
+        periodFrom(reportedPeriod, reportedIndex ?? requestedPeriod).index !==
+          requestedPeriod) ||
+      (periods.length > 0 && !selected) ||
+      (!periods.length && requestedPeriod !== 0)
+    )
+      throw new SynergyError(
+        "StudentVUE returned a different grading period. Please try selecting the period again.",
+      );
+    period = reportedPeriod
+      ? periodFrom(reportedPeriod, reportedIndex ?? requestedPeriod)
+      : (selected ?? {
+          index: requestedPeriod,
+          name: "Current grading period",
+          start: "",
+          end: "",
+        });
+  }
   let assignmentCount = 0;
   const hidePercent = truthy(gb.hidePercentSecondary);
   const courses = records(gb.courses, 200)
@@ -287,13 +317,18 @@ export class StudentVueMobileClient implements GradebookClient {
       );
   }
 
-  async gradebook(period = 0): Promise<Gradebook> {
+  async gradebook(period?: number): Promise<Gradebook> {
     this.assertConnected();
-    if (!Number.isInteger(period) || period < 0 || period > 50)
+    if (
+      period !== undefined &&
+      (!Number.isInteger(period) || period < 0 || period > 50)
+    )
       throw new SynergyError("Choose a valid grading period.", 400);
     await this.login();
+    // Leaving reportPeriod out asks StudentVUE for the current grading period;
+    // sending 0 always returned the first one (old grades later in the year).
     const inner = {
-      reportPeriod: period,
+      ...(period === undefined ? {} : { reportPeriod: period }),
       childIntID: 0,
       languageCode: "en",
     };

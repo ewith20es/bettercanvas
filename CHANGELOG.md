@@ -4,6 +4,16 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-18 — Mobile gradebook loads the current grading period
+
+- The mobile client always sent `reportPeriod: 0`, so StudentVUE returned the
+  first grading period on every load, even after auto-refresh was added. The
+  first load now omits `reportPeriod` (as the `Zillorz/svue-api` reference does),
+  so StudentVUE answers with the current period; its index is resolved by name,
+  or by today's date when no current period is reported. Choosing a period still
+  sends that index.
+- 203 tests, typecheck and build passed. Live MCPS response not verified.
+
 ## 2026-10-18 — Gradebook fetches fresh grades automatically
 
 - The Gradebook showed the grades loaded when the StudentVUE connection started,
