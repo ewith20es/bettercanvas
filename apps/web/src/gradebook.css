@@ -366,6 +366,16 @@
   white-space: nowrap;
   line-height: 16px;
 }
+.gb-bells { border: 1px solid var(--line, #d1d5db); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+.gb-bell-controls { display: flex; flex-wrap: wrap; gap: 14px; }
+.gb-bell-controls label { display: grid; gap: 6px; flex: 1 1 240px; min-width: 0; font-weight: 600; }
+.gb-bell-controls select { width: 100%; min-width: 0; }
+.gb-bell-note { font-size: 13px; margin: 12px 0 0; line-height: 1.6; }
+.gb-bells summary { cursor: pointer; margin-top: 12px; }
+.gb-bell-inputs { display: grid; gap: 10px; margin: 12px 0; }
+.gb-bell-inputs > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.gb-bell-inputs strong { min-width: 70px; }
+.gb-bell-inputs input { min-width: 0; width: 120px; }
 [data-theme="dark"] .gb-countdown {
   background: #374151;
   color: #d1d5db;

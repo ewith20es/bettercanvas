@@ -61,6 +61,8 @@ export type ClassMeeting = {
 export type TodaySchedule = {
   fetchedAt: string;
   meetings: ClassMeeting[];
+  /** A recognized daily schedule, including an explicitly empty day off. */
+  available?: boolean;
 };
 export type GradebookConnection = {
   connected: boolean;
@@ -223,10 +225,12 @@ export function clockLabel(minutes: number) {
 // The meeting covering `minutes` today, and when that class truly ends (back to
 // back blocks of the same class are treated as one, matching StudentVUE).
 export function activeMeeting(meetings: ClassMeeting[], minutes: number) {
-  const active = meetings.find((m) => minutes >= m.start && minutes <= m.end);
+  const active = meetings.find((m) => minutes >= m.start && minutes < m.end);
   if (!active) return null;
-  const end = meetings
-    .filter((m) => m.name === active.name)
-    .reduce((latest, m) => (m.end > latest ? m.end : latest), active.end);
+  let end = active.end;
+  for (const meeting of [...meetings].sort((a, b) => a.start - b.start)) {
+    if (meeting.name === active.name && meeting.period === active.period && meeting.start === end)
+      end = meeting.end;
+  }
   return { ...active, end };
 }

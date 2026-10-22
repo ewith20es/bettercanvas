@@ -1,6 +1,6 @@
 # Better Canvas — current project context
 
-Last updated: **October 18, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
+Last updated: **October 21, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
 and [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## Purpose and stack
@@ -22,6 +22,23 @@ optional Canvas offline storage. One Render web service serves frontend and API.
   and Render state before treating this dated snapshot as current.
 
 ## Current work and verification
+
+October 21 follow-up: mobile StudentClassList is now requested on connection and
+uncached grade refresh, using the same app header and bearer token with one renewal
+on 401. Daily schedule containers are parsed conservatively; all-term lists are
+not used as today's times. Current-day automatic schedules take priority over
+school presets, including explicitly empty days. 211 tests/build/typecheck pass.
+Parser fixtures are synthetic; real MCPS daily response compatibility still needs
+user verification. All countdown changes remain local, uncommitted/unpushed.
+
+October 21: restored gradebook countdowns through a school/day dropdown with
+officially sourced Blair, Richard Montgomery, and Einstein bell schedules plus
+custom times. Preferences are scoped to the Canvas account on this browser;
+no grades are persisted. School time is Eastern, weekends are suppressed,
+special-day choices expire daily, and Blair block days require explicit selection.
+Holidays/advisory calendars are not automatically detected; choose pause/custom
+as needed. Existing StudentVUE times remain available when no school is selected.
+208 tests and production build/typecheck passed. Local only, not pushed/deployed.
 
 October 18 follow-up: found Gradr's public backend `Zillorz/svue-api` and its
 new-app migration PR #2. Added its required `edupointkeyversion` header and updated

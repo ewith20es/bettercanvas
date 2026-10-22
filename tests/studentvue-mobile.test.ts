@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   StudentVueMobileClient,
   parseMobileGradebook,
+  parseMobileSchedule,
 } from "../apps/server/src/studentvue-mobile";
 import { STUDENTVUE_ORIGIN } from "../apps/server/src/synergy";
 import { getStudentVueAppKey } from "../apps/server/src/studentvue-app-key";
@@ -294,6 +295,36 @@ describe("modern StudentVUE gradebook parser", () => {
 });
 
 describe("modern MCPS StudentVUE client", () => {
+  it("normalizes daily bell rows without treating all-term classes as today's schedule", () => {
+    const row = { className: "Example Science", period: "2", roomName: "B204", teacherName: "Pat Example", startTime: "8:35 AM", endTime: "9:25 AM" };
+    const parsed = parseMobileSchedule({ studentClassSchedule: { todayScheduleInfoData: { schoolInfos: [{ classes: [row] }] } } });
+    expect(parsed.available).toBe(true);
+    expect(parsed.meetings).toEqual([{ name: "Example Science", period: 2, room: "B204", teacher: "Pat Example", start: 515, end: 565 }]);
+    expect(parseMobileSchedule({ studentClassScheduleForAllTerms: { classLists: [row] } })).toMatchObject({ meetings: [], available: false });
+    expect(parseMobileSchedule({ todayCourses: [] })).toMatchObject({ meetings: [], available: true });
+    expect(parseMobileSchedule({ todayCourses: [{ ...row, startTime: "", endTime: "" }] })).toMatchObject({ meetings: [], available: false });
+  });
+
+  it("accepts wrapped Pascal-case daily rows and rejects invalid times and oversized schedules", () => {
+    expect(parseMobileSchedule({ TodayScheduleInfoData: { SchoolInfos: { SchoolInfo: { Classes: { ClassInfo: { ClassName: "Example", Period: "6", StartTime: "13:05:00", EndTime: "13:50:00" } } } } } }).meetings[0]).toMatchObject({ period: 6, start: 785, end: 830 });
+    for (const [start, end] of [["13:00 PM", "2:00 PM"], ["08:60", "09:40"], ["10:00", "09:00"]]) {
+      expect(parseMobileSchedule({ todayCourses: [{ start, end }] }).meetings).toEqual([]);
+    }
+    expect(() => parseMobileSchedule({ todayCourses: Array(1001).fill({}) })).toThrow("unreadable");
+  });
+
+  it("renews an expired schedule token once and preserves daily times", async () => {
+    let scheduleCalls = 0;
+    const request = vi.fn<typeof fetch>().mockImplementation(async url => {
+      if (String(url).endsWith("/AttemptLogin")) return loginReply();
+      if (!scheduleCalls++) return new Response(null, { status: 401 });
+      return jsonReply({ data: { todayCourses: [{ title: "Example", period: "1", start: "7:45 AM", end: "8:30 AM" }] } });
+    });
+    const client = new StudentVueMobileClient("fixture-id", "fixture-password", request);
+    expect((await client.schedule()).meetings[0]).toMatchObject({ period: 1, start: 465, end: 510 });
+    expect(request).toHaveBeenCalledTimes(4);
+  });
+
   it("does not send student credentials if the app-key lookup fails", async () => {
     vi.mocked(getStudentVueAppKey).mockRejectedValueOnce(new Error("private lookup detail"));
     const request = transport();
@@ -368,7 +399,7 @@ describe("modern MCPS StudentVUE client", () => {
     ).toEqual({ reportPeriod: 1, childIntID: 0, languageCode: "en" });
   });
 
-  it("does not invent a schedule or send unsupported schedule requests", async () => {
+  it("requests today's schedule using the mobile session and does not invent missing times", async () => {
     const request = transport();
     const client = new StudentVueMobileClient(
       "fixture-id",
@@ -376,7 +407,11 @@ describe("modern MCPS StudentVUE client", () => {
       request,
     );
     expect((await client.schedule()).meetings).toEqual([]);
-    expect(request).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(String(request.mock.calls[1][0])).toBe(`${STUDENTVUE_ORIGIN}/api/v1/mobile/PXPWebServices/StudentClassList`);
+    expect(new Headers(request.mock.calls[1][1]?.headers).get("Authorization")).toBe("Bearer fixture-token");
+    expect(new Headers(request.mock.calls[1][1]?.headers).get("edupointkeyversion")).toBe("A".repeat(64));
+    expect(JSON.parse(JSON.parse(String(request.mock.calls[1][1]?.body)).arguments.request)).toEqual({ childIntID: 0, loadAllTerms: true, conSchOrgYearGU: "", conSchTermIndex: "-1", termIndex: "-1" });
   });
 
   it("shares a pending login across concurrent grade requests", async () => {

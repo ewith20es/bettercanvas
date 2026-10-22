@@ -1,7 +1,37 @@
 # StudentVUE connection handoff
 
-Updated October 18, 2026. This records implementation evidence and unresolved
+Updated October 21, 2026. This records implementation evidence and unresolved
 work, not a claim that every connection works with a live account.
+
+## October 21: countdown fallback
+
+Initially the mobile client's schedule method returned no meetings. The public migration
+schedule implementation (`Zillorz/svue-api`, commit `d75f429`, `src/api/schedule.rs`)
+calls StudentClassList but explicitly emits empty start/end times. Do not invent
+mobile bell fields or switch authentication providers to restore the countdown.
+
+Follow-up: implemented the evidenced StudentClassList request using that migration's
+body (childIntID, loadAllTerms, conSchOrgYearGU, conSchTermIndex, termIndex). Daily
+parsing supports explicit todayScheduleInfoData/todaySchedule/todayCourses containers
+with start/end times and case variants; those shapes are compatibility hypotheses
+covered with synthetic fixtures, not captured real MCPS data. Missing daily fields
+yield unavailable times, never invented meetings. MangoGrade's public frontend
+confirms its own normalized todayCourses/start/end contract, not the raw upstream
+schema. Live verification remains required. Automatic daily data now takes priority
+over manual presets; refresh reloads optional schedule without failing grades.
+211 tests/build/typecheck passed. Local, uncommitted/unpushed.
+
+The gradebook now offers a school/day dropdown and custom bell times, stored only
+as per-account browser preferences. Preset sources checked October 21:
+- Blair: https://mbhs.edu/schedule (block, all-period, delay, early, homeroom).
+- RM: official homepage links the 26–27 bell document at
+  https://docs.google.com/document/d/1AmpwjSJlXZMseWaDFIK5xiuCAVdiqmxSZkTK8Aa03PE/edit.
+- Einstein: https://www.montgomeryschoolsmd.org/contentassets/ed4fa6fb482b4560b892d169fdbbf82d/bell-schedule.pdf.
+
+These are published timetable presets, not a live calendar: holidays and special
+days need a user selection; Blair block days are never guessed. Eastern time,
+weekend suppression, daily expiry of overrides, and current-day checks on live
+StudentVUE schedules prevent stale timer reuse. 208 tests and build passed; local only.
 
 ## October 18 follow-up: Gradr backend identifies the missing header
 

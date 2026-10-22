@@ -318,6 +318,15 @@ export function registerGradebook(
         assertActive(key, c);
         c.snapshot = snapshot;
         c.cache.set(period, snapshot);
+        try {
+          const schedule = await c.client.schedule();
+          assertActive(key, c);
+          c.schedule = schedule;
+        } catch {
+          // Optional bell data must not fail a successful grade refresh.
+          if (connections.get(key) === c) c.schedule = null;
+        }
+        assertActive(key, c);
         return state(key, req.cookies[rememberCookie]);
       } catch (e) {
         if (

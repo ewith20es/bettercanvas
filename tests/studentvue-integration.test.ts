@@ -110,6 +110,7 @@ describe("optional direct MCPS StudentVUE connection", () => {
       expect(fetcher.mock.calls.map(([url]) => String(url))).toEqual([
         "https://md-mcps-psv.edupoint.com/api/v1/mobile/PXPWebServices/AttemptLogin",
         "https://md-mcps-psv.edupoint.com/api/v1/mobile/PXPWebServices/Gradebook",
+        "https://md-mcps-psv.edupoint.com/api/v1/mobile/PXPWebServices/StudentClassList",
       ]);
       const request = JSON.parse(String(fetcher.mock.calls[0][1]?.body));
       expect(JSON.parse(request.arguments.request).userType).toBe("Student");

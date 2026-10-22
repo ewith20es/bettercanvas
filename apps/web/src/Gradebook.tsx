@@ -27,6 +27,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { api, ApiError } from "./data";
+import { BellSchedule } from "./BellSchedule";
+import { readBellPreference, schoolClock, selectedBells, type BellPreference } from "./bell-schedules";
 import {
   activeMeeting,
   clockLabel,
@@ -91,16 +93,16 @@ function useClock(enabled: boolean) {
   return now;
 }
 // The class in session right now, with seconds left, from today's bell schedule.
-function useClassCountdown(schedule: TodaySchedule | null) {
-  const now = useClock(!!schedule?.meetings.length);
+function useClassCountdown(schedule: TodaySchedule | null, now: number, demo: boolean) {
   if (!schedule?.meetings.length) return null;
-  const at = new Date(now);
-  const minutes = at.getHours() * 60 + at.getMinutes();
-  const active = activeMeeting(schedule.meetings, minutes);
+  const clock = schoolClock(now);
+  if (!demo && (!clock.weekday || schoolClock(Date.parse(schedule.fetchedAt)).date !== clock.date)) return null;
+  const seconds = demo ? new Date(now).getHours() * 3600 + new Date(now).getMinutes() * 60 + new Date(now).getSeconds() : clock.seconds;
+  const active = activeMeeting(schedule.meetings, seconds / 60);
   if (!active) return null;
   const secondsLeft = Math.max(
     0,
-    active.end * 60 - (minutes * 60 + at.getSeconds()),
+    active.end * 60 - seconds,
   );
   return { ...active, secondsLeft, label: remainingLabel(secondsLeft) };
 }
@@ -111,7 +113,14 @@ const urgency = (seconds: number) =>
 // Renew a remembered connection this long before the server's hour runs out.
 const renewEarly = 2 * 60 * 1000;
 
-export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
+export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; account: string }) {
+  const [bells, setBells] = useState(() => readBellPreference(account));
+  const [bellSaveError, setBellSaveError] = useState("");
+  const chooseBells = (next: BellPreference) => {
+    setBells(next);
+    try { localStorage.setItem(`bc:bells:${account}`, JSON.stringify(next)); setBellSaveError(""); }
+    catch { setBellSaveError("Bell times work for this visit, but this browser could not save them."); }
+  };
   const [connection, setConnection] = useState<GradebookConnection | null>(
     null,
   );
@@ -278,9 +287,12 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
   const sampleSchedule = useRef(
     demoSchedule(new Date().getHours() * 60 + new Date().getMinutes()),
   );
-  const countdown = useClassCountdown(
-    sample ? sampleSchedule.current : (connection?.schedule ?? null),
-  );
+  const tick = useClock(!!data);
+  const autoSchedule = connection?.schedule;
+  const automatic = !!autoSchedule && (autoSchedule.available === true || autoSchedule.meetings.length > 0) && schoolClock(Date.parse(autoSchedule.fetchedAt)).date === schoolClock(tick).date;
+  const countdown = useClassCountdown(sample ? sampleSchedule.current : automatic ? autoSchedule : bells.school
+    ? { fetchedAt: new Date(tick).toISOString(), meetings: selectedBells(bells, tick) }
+    : (connection?.schedule ?? null), tick, !!sample);
   // Grading-period wording only changes by the day, so a value taken per render
   // is stable enough and avoids a second ticking clock.
   const now = Date.now();
@@ -543,7 +555,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
                     <p className="gb-privacy">
                       This connection reads course grades and assignment scores
                       from the website. Category calculations, the class
-                      countdown, and grading-period dates are not supported yet.
+                      StudentVUE bell times, and grading-period dates are not supported yet. You can choose a school schedule for the countdown.
                     </p>
                   </>
                 ) : (
@@ -640,6 +652,8 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
       )}
       {data && (
         <>
+          {!sample && (automatic ? <details className="gb-bells"><summary>Using today’s StudentVUE bell times · Fallback settings</summary><BellSchedule value={bells} onChange={chooseBells} today={schoolClock(tick).date} /></details> : <BellSchedule value={bells} onChange={chooseBells} today={schoolClock(tick).date} />)}
+          {bellSaveError && <p role="status">{bellSaveError}</p>}
           {sample && (
             <div className="gb-sample">
               <span>Sample grades · These are made-up examples.</span>
@@ -815,8 +829,7 @@ export function Gradebook({ demoWorkspace }: { demoWorkspace: boolean }) {
             {sample ? "Demo only" : "Reported grades from StudentVUE / Synergy"}{" "}
             {!sample && connection?.method === "browser-session" && (
               <span>
-                · Browser session · Category calculations and the class
-                countdown are unavailable.
+                · Browser session · Category calculations are unavailable.
               </span>
             )}
             {hasCalculatedLetters && (

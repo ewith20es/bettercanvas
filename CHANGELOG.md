@@ -4,6 +4,38 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-21 — Request automatic mobile bell schedules
+
+- Added authenticated StudentClassList mobile request on connect and uncached
+  refresh; retains app compatibility header, fixed origin, cancellation, bounds,
+  and one token renewal on 401. Schedule failure does not discard grades.
+- Parse explicit daily containers (camel/Pascal-case) and valid 12/24-hour times;
+  never infer today's timetable from all-term courses or invent missing times.
+- Prefer current-day automatic data over presets, including recognized empty days.
+  School selection remains a fallback when automatic times are unavailable.
+- MangoGrade's public frontend uses normalized todayCourses/start/end from its
+  own server; its raw StudentVUE response is still private. The method is evidenced
+  by the public mobile migration, but daily parser variants are synthetic fixtures
+  and require live MCPS verification. No claim of verified automatic countdown yet.
+- 211 tests and production build/typecheck passed. Local only, not pushed/deployed.
+
+## 2026-10-21 — Restore class countdown with school bell schedules
+
+- The new mobile connection returns no bell times, which hid the existing timer.
+  Added school/day selectors above gradebook classes for Montgomery Blair,
+  Richard Montgomery, and Albert Einstein, plus custom times for other schools.
+- Presets transcribed from official school sources linked in the UI; include
+  regular, early-release and delayed-opening days, plus Blair all-period/homeroom
+  options. RM period 2 includes the published RMBC segment through 9:30.
+- Save bell preferences per Canvas account/browser; keep grades out of storage.
+  Countdown uses America/New_York even on devices in other time zones. Weekends
+  and stale StudentVUE schedules are suppressed. Special choices reset next day;
+  Blair requires an explicit block selection. No holiday/calendar inference.
+- Existing active-class highlight/countdown works in cards and table view.
+  Fixed exact-end boundaries and prevented separate later classes being merged.
+- 208 tests and production build/typecheck passed. UI has not been visually
+  verified with a live account. Not committed, pushed, or deployed.
+
 ## 2026-10-18 — Add new mobile app compatibility header from Gradr evidence
 
 - Public Gradr frontend led to the open-source `Zillorz/svue-api` backend and

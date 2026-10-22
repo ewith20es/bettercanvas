@@ -232,7 +232,62 @@ export function parseMobileGradebook(
   };
 }
 
-function upstreamError(value: unknown, stage: "sign-in" | "grade loading"): SynergyError | null {
+// StudentClassList is evidenced by Zillorz/svue-api PR #2. Daily JSON containers
+// below support the legacy daily structure's camel/Pascal-case equivalents.
+// Do not treat the all-terms class list as today's actual bell schedule.
+export function parseMobileSchedule(data: unknown): TodaySchedule {
+  const result: TodaySchedule = { fetchedAt: new Date().toISOString(), meetings: [], available: false };
+  const queue: { value: unknown; daily: boolean; depth: number }[] = [{ value: data, daily: false, depth: 0 }];
+  let visited = 0;
+  let foundDaily = false;
+  let classRows = 0;
+  const field = (row: JsonObject, ...names: string[]) => {
+    const entry = Object.entries(row).find(([key]) => names.includes(key.toLowerCase().replace(/^@/, "")));
+    return entry?.[1];
+  };
+  const minutes = (value: unknown): number | null => {
+    const match = /^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i.exec(text(value));
+    if (!match) return null;
+    let hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (minute > 59 || (match[3] ? hour < 1 || hour > 12 : hour > 23)) return null;
+    if (match[3]) hour = hour % 12 + (match[3].toUpperCase() === "PM" ? 12 : 0);
+    return hour * 60 + minute;
+  };
+  while (queue.length) {
+    const item = queue.shift()!;
+    if (++visited > 5000 || item.depth > 12) throw unreadable();
+    if (Array.isArray(item.value)) {
+      if (item.value.length > 1000) throw unreadable();
+      queue.push(...item.value.map(value => ({ ...item, value, depth: item.depth + 1 })));
+      continue;
+    }
+    const row = object(item.value);
+    if (!row) continue;
+    if (item.daily && (field(row, "starttime", "start") !== undefined || field(row, "endtime", "end") !== undefined || field(row, "classname", "coursetitle", "title") !== undefined)) {
+      classRows++;
+      const start = minutes(field(row, "starttime", "start"));
+      const end = minutes(field(row, "endtime", "end"));
+      const period = numeric(field(row, "period"));
+      if (start !== null && end !== null && end > start) result.meetings.push({
+        name: text(field(row, "classname", "coursetitle", "title")) || "Class",
+        period: period !== null && Number.isInteger(period) ? period : null,
+        room: text(field(row, "roomname", "room")),
+        teacher: text(field(row, "teachername", "teacher")), start, end,
+      });
+    }
+    for (const [key, value] of Object.entries(row)) {
+      const isDaily = ["todayscheduleinfodata", "todayschedule", "todaycourses"].includes(key.toLowerCase());
+      if (isDaily && (Array.isArray(value) || object(value))) foundDaily = true;
+      if (value && typeof value === "object") queue.push({ value, daily: item.daily || isDaily, depth: item.depth + 1 });
+    }
+  }
+  result.meetings.sort((a, b) => a.start - b.start);
+  result.available = foundDaily && (classRows === 0 || result.meetings.length > 0);
+  return result;
+}
+
+function upstreamError(value: unknown, stage: "sign-in" | "grade loading" | "schedule loading"): SynergyError | null {
   const error = object(value);
   if (!error) return value == null ? null : unreadable();
   const code = text(error.code),
@@ -311,8 +366,18 @@ export class StudentVueMobileClient implements GradebookClient {
 
   async schedule(): Promise<TodaySchedule> {
     this.assertConnected();
-    // No modern schedule protocol was evidenced; keep the countdown unavailable.
-    return { fetchedAt: new Date().toISOString(), meetings: [] };
+    await this.login();
+    const inner = { childIntID: 0, loadAllTerms: true, conSchOrgYearGU: "", conSchTermIndex: "-1", termIndex: "-1" };
+    let json = await this.post("StudentClassList", inner, `Bearer ${this.token}`);
+    if (text(object(json.error)?.code) === "401") {
+      this.token = "";
+      await this.login();
+      json = await this.post("StudentClassList", inner, `Bearer ${this.token}`);
+    }
+    this.assertConnected();
+    const error = upstreamError(json.error, "schedule loading");
+    if (error) throw error;
+    return parseMobileSchedule(json.data);
   }
 
   private async login(): Promise<void> {
@@ -352,7 +417,7 @@ export class StudentVueMobileClient implements GradebookClient {
   }
 
   private async post(
-    method: "AttemptLogin" | "Gradebook",
+    method: "AttemptLogin" | "Gradebook" | "StudentClassList",
     inner: JsonObject,
     authorization: string,
   ): Promise<JsonObject> {
@@ -377,7 +442,7 @@ export class StudentVueMobileClient implements GradebookClient {
       this.assertConnected();
       if (!response.ok) {
         await response.body?.cancel();
-        if (response.status === 401 && method === "Gradebook")
+        if (response.status === 401 && method !== "AttemptLogin")
           return { error: { code: "401" } };
         if (response.status === 401)
           throw new SynergyError(

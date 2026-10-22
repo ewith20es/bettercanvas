@@ -483,7 +483,7 @@ export default function App() {
             <Route path="/courses" element={<Courses {...props} />} />
             <Route
               path="/gradebook"
-              element={<Gradebook demoWorkspace={data.demo} />}
+              element={<Gradebook key={accountKey(data)} account={accountKey(data)} demoWorkspace={data.demo} />}
             />
             <Route
               path="/settings"
