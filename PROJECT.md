@@ -23,6 +23,12 @@ optional Canvas offline storage. One Render web service serves frontend and API.
 
 ## Current work and verification
 
+October 21 merge: combined local countdown commit `7ea53ef` and remote main
+through `9515206` (gradebook auto-refresh and current-period loading). Only
+CHANGELOG.md conflicted; both histories were retained. 212 tests and production
+build/typecheck passed. Deployment and live schedule verification remain pending.
+This supersedes the uncommitted status in the historical notes below.
+
 October 21 follow-up: mobile StudentClassList is now requested on connection and
 uncached grade refresh, using the same app header and bearer token with one renewal
 on 401. Daily schedule containers are parsed conservatively; all-term lists are

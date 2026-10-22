@@ -4,6 +4,13 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-21 — Resolve main merge
+
+- Combined local countdown commit `7ea53ef` with remote main through `9515206`:
+  retained countdown/school presets alongside auto-refresh and current-period fixes.
+- Resolved the sole text conflict by retaining both branches' changelog entries.
+  212 tests and production build/typecheck passed. No deployment performed.
+
 ## 2026-10-21 — Request automatic mobile bell schedules
 
 - Added authenticated StudentClassList mobile request on connect and uncached
@@ -35,6 +42,26 @@ are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.m
   Fixed exact-end boundaries and prevented separate later classes being merged.
 - 208 tests and production build/typecheck passed. UI has not been visually
   verified with a live account. Not committed, pushed, or deployed.
+## 2026-10-18 — Mobile gradebook loads the current grading period
+
+- The mobile client always sent `reportPeriod: 0`, so StudentVUE returned the
+  first grading period on every load, even after auto-refresh was added. The
+  first load now omits `reportPeriod` (as the `Zillorz/svue-api` reference does),
+  so StudentVUE answers with the current period; its index is resolved by name,
+  or by today's date when no current period is reported. Choosing a period still
+  sends that index.
+- 203 tests, typecheck and build passed. Live MCPS response not verified.
+
+## 2026-10-18 — Gradebook fetches fresh grades automatically
+
+- The Gradebook showed the grades loaded when the StudentVUE connection started,
+  for up to an hour, until Refresh was clicked. It now fetches fresh grades from
+  StudentVUE (via the selected mobile client) when the page opens, when the tab
+  comes back into view, and every 5 minutes while visible. Failures stay quiet
+  and keep the last grades; the existing 20-second server cache prevents duplicates.
+- Resuming a saved sign-in on a still-healthy connection now re-fetches the
+  current grading period instead of returning the old snapshot.
+- 202 tests (one extended), typecheck and build passed. Not deployed.
 
 ## 2026-10-18 — Add new mobile app compatibility header from Gradr evidence
 

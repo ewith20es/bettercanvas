@@ -261,8 +261,23 @@ export function registerGradebook(
         current?.snapshot &&
         !current.busy &&
         current.expires - Date.now() > renewWindow
-      )
+      ) {
+        // Reopening the app should show today's grades, not the ones loaded
+        // when this connection started up to an hour ago.
+        const period = current.snapshot.period.index;
+        current.busy = true;
+        try {
+          const snapshot = await current.client.gradebook(period);
+          assertActive(key, current);
+          current.snapshot = snapshot;
+          current.cache.set(period, snapshot);
+        } catch {
+          /* keep the last grades; the page retries and Refresh reports errors */
+        } finally {
+          current.busy = false;
+        }
         return state(key, value);
+      }
       if (current?.busy)
         return reply.code(409).send({
           error: "A StudentVUE request is still running. Please wait.",

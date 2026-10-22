@@ -117,9 +117,15 @@ describe("keep me signed in", () => {
         "private-student",
         "private-password",
       );
-      // A second call while connected does not sign in again.
+      // A second call while connected does not sign in again, but it does
+      // fetch fresh grades instead of showing the ones from the first load.
+      const client = factory.mock.results.at(-1)!.value as ReturnType<
+        typeof fakeClient
+      >;
+      const loads = client.gradebook.mock.calls.length;
       await post(app, "/api/gradebook/resume", cookie);
       expect(factory).toHaveBeenCalledTimes(2);
+      expect(client.gradebook).toHaveBeenCalledTimes(loads + 1);
     } finally {
       await app.close();
     }
