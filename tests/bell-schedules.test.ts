@@ -33,6 +33,33 @@ describe("gradebook school bell schedules", () => {
     expect(validBells([{ period: 1, start: 500, end: 400 }])).toBe(false);
     expect(validBells([{ period: 1, start: 500, end: 600 }, { period: 1, start: 700, end: 800 }])).toBe(false);
   });
+  it("requires a middle-school grade and preserves it when special schedules expire", () => {
+    const now = Date.parse("2026-10-22T15:20:00Z");
+    for (const school of ["frost", "cabin-john", "hoover", "north-bethesda"]) {
+      expect(selectedBells({ ...emptyBellPreference, school }, now)).toEqual([]);
+      const p = { ...emptyBellPreference, school, grade: 6 as const, date: "2026-10-21", day: "early-6" };
+      expect(chosenDay(p, "2026-10-22")).toBe("regular-6");
+      expect(selectedBells(p, now)).toHaveLength(7);
+      expect(selectedBells({ ...p, date: "2026-10-22", day: "regular-7" }, now)).toEqual([]);
+    }
+  });
+  it("uses the right middle-school lunch gaps instead of highlighting a class during lunch", () => {
+    const now = Date.parse("2026-10-22T15:20:00Z");
+    const meetings = (school: string, grade: 6 | 7 | 8) => selectedBells({ ...emptyBellPreference, school, grade }, now);
+    expect(activeMeeting(meetings("frost", 7), 680)).toBeNull();
+    expect(activeMeeting(meetings("frost", 6), 680)?.period).toBe(4);
+    expect(activeMeeting(meetings("cabin-john", 8), 680)).toBeNull();
+    expect(activeMeeting(meetings("cabin-john", 6), 680)?.period).toBe(4);
+    expect(activeMeeting(meetings("hoover", 6), 650)).toBeNull();
+    expect(activeMeeting(meetings("hoover", 8), 650)?.period).toBe(4);
+    expect(activeMeeting(meetings("north-bethesda", 6), 680)).toBeNull();
+    expect(activeMeeting(meetings("north-bethesda", 7), 680)?.period).toBe(4);
+  });
+  it("does not guess a Wootton weekday pattern or silently enable the dated Poolesville preset", () => {
+    for (const school of ["wootton", "poolesville"]) {
+      expect(chosenDay({ ...emptyBellPreference, school }, "2026-10-22")).toBe("");
+    }
+  });
   it("uses custom times without persisting any course or grade records", () => {
     const p = { ...emptyBellPreference, school: "custom", custom: [{ period: 3, start: 600, end: 650 }] };
     expect(activeMeeting(selectedBells(p, Date.parse("2026-10-21T14:05:00Z")), 605)).toMatchObject({ period: 3, end: 650 });

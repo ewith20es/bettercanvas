@@ -1,6 +1,6 @@
 # Better Canvas — current project context
 
-Last updated: **October 21, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
+Last updated: **October 22, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
 and [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## Purpose and stack
@@ -22,6 +22,29 @@ optional Canvas offline storage. One Render web service serves frontend and API.
   and Render state before treating this dated snapshot as current.
 
 ## Current work and verification
+
+October 22 backup expansion: added seven requested schools (Wootton, Churchill,
+Poolesville, Frost, Cabin John, Hoover, North Bethesda). Middle schools save grade
+level and use grade-specific lunch gaps; high/middle options are grouped. Sources
+are linked in each preset. Poolesville's officially linked 2023–24 document is
+explicitly flagged and requires a manual day selection. 216 tests/build/typecheck
+pass; dropdown and grade-level flow verified locally. Not committed or deployed.
+
+October 22 fix: verified the live MCPS response. StudentClassList with
+loadAllTerms=true omits the daily schedule; false returns
+studentClassSchedule.todayScheduleInfoData.schoolInfos[].classes[] with bell times.
+Changed that request flag; local UI confirmed automatic StudentVUE times. 213 tests
+and production build/typecheck passed. Temporary type-only diagnostics were removed.
+Local only, not committed/pushed/deployed. Supersedes the research uncertainty below.
+
+Local connection follow-up (October 22): local .env lacked STUDENTVUE_PROXY_PROVIDER, causing the GradeDurian default. Set the ignored local configuration to mobile and restarted the watched backend; /api/health returned 200. Live StudentVUE sign-in still requires user retry. No Render settings changed.
+
+October 22: user reports automatic Synergy countdown still unavailable. Gradr
+research shows automatic school detection plus a separate SchoolNest-backed bell
+calendar, not verified direct mobile bell times. Blair's public calendar combines
+odd/even periods, so it cannot establish today's block. See docs/STUDENTVUE.md.
+No runtime fix claimed. Main was clean and synchronized with origin before this
+research; earlier local-only statuses below are historical.
 
 October 21 merge: combined local countdown commit `7ea53ef` and remote main
 through `9515206` (gradebook auto-refresh and current-period loading). Only

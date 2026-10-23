@@ -330,6 +330,35 @@ describe("modern MCPS StudentVUE client", () => {
     expect(() => parseMobileSchedule({ todayCourses: Array(1001).fill({}) })).toThrow("unreadable");
   });
 
+  it("requests the daily view so MCPS includes bell times instead of the all-term list", async () => {
+    // Fictional values, using the response structure observed locally on Oct 22.
+    const request = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
+      if (String(url).endsWith("/AttemptLogin")) return loginReply();
+      const args = JSON.parse(JSON.parse(String(init?.body)).arguments.request);
+      return jsonReply({ error: null, data: args.loadAllTerms ? {
+        studentClassSchedule: null,
+        studentClassScheduleForAllTerms: { studentClassScheduleForTerms: [] },
+      } : {
+        studentClassScheduleForAllTerms: null,
+        studentClassSchedule: {
+          classLists: [{ period: "1", courseTitle: "Not meeting today" }],
+          todayScheduleInfoData: { schoolInfos: [{ classes: [
+            { period: "2", className: "Example Science", startTime: "7:45 AM", endTime: "9:15 AM", roomName: "101", teacherName: "Example Teacher" },
+            { period: "4", className: "Example Art", startTime: "9:20 AM", endTime: "10:50 AM" },
+          ] }] },
+        },
+      } });
+    });
+    const client = new StudentVueMobileClient("fixture-id", "fixture-password", request);
+    const schedule = await client.schedule();
+    expect(schedule.available).toBe(true);
+    expect(schedule.meetings).toEqual([
+      { name: "Example Science", period: 2, start: 465, end: 555, room: "101", teacher: "Example Teacher" },
+      { name: "Example Art", period: 4, start: 560, end: 650, room: "", teacher: "" },
+    ]);
+    client.dispose();
+  });
+
   it("renews an expired schedule token once and preserves daily times", async () => {
     let scheduleCalls = 0;
     const request = vi.fn<typeof fetch>().mockImplementation(async url => {
@@ -434,7 +463,7 @@ describe("modern MCPS StudentVUE client", () => {
     expect(String(request.mock.calls[1][0])).toBe(`${STUDENTVUE_ORIGIN}/api/v1/mobile/PXPWebServices/StudentClassList`);
     expect(new Headers(request.mock.calls[1][1]?.headers).get("Authorization")).toBe("Bearer fixture-token");
     expect(new Headers(request.mock.calls[1][1]?.headers).get("edupointkeyversion")).toBe("A".repeat(64));
-    expect(JSON.parse(JSON.parse(String(request.mock.calls[1][1]?.body)).arguments.request)).toEqual({ childIntID: 0, loadAllTerms: true, conSchOrgYearGU: "", conSchTermIndex: "-1", termIndex: "-1" });
+    expect(JSON.parse(JSON.parse(String(request.mock.calls[1][1]?.body)).arguments.request)).toEqual({ childIntID: 0, loadAllTerms: false, conSchOrgYearGU: "", conSchTermIndex: "-1", termIndex: "-1" });
   });
 
   it("shares a pending login across concurrent grade requests", async () => {

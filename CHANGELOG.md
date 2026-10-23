@@ -4,6 +4,56 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-22 — Expand backup school bell schedules
+
+- Added Wootton, Churchill and Poolesville high schools, plus Frost, Cabin John,
+  Hoover and North Bethesda middle schools, grouped in the fallback dropdown.
+- Transcribed regular, early-release and two-hour-delay times from each school's
+  officially linked document. Wootton also has advisory/pep rally; Churchill has
+  PRIDE, town hall and pep rally; Poolesville has Wednesday/advisory.
+- Added a saved grade 6/7/8 choice for middle schools. Each grade uses its own
+  lunch gaps and numbered classes; unnumbered advisory/lunch blocks are not mapped
+  to an invented course period. Special schedule overrides still expire daily,
+  retaining grade level and returning middle schools to their regular schedule.
+- Poolesville's current site links a document labeled 2023–24: an explicit UI note
+  flags this, and no day is selected automatically. Wootton also requires an explicit
+  day choice because regular and advisory patterns differ. Automatic Synergy times
+  remain preferred over all backup presets.
+- 216 tests and production build/typecheck passed. Browser verified all seven options
+  and Frost grade selection; restored the user's previous fallback selection.
+  Local changes only, not committed/pushed/deployed.
+
+## 2026-10-22 — Fix automatic Synergy bell times (live verified)
+
+- The mobile request incorrectly set loadAllTerms=true. Live comparison showed
+  that false returns today's bell times in studentClassSchedule.todayScheduleInfoData;
+  true returns only the all-term list. Changed the flag; existing parser recognizes
+  the live daily response. No new calendar dependency or manual school selection.
+- Local Gradebook confirmed “Using today’s StudentVUE bell times.” The observed
+  response contained five daily meetings. Active in-class timer was not observed
+  because verification occurred after school hours.
+- Added a regression using fictional values in the observed daily response shape,
+  with a transport that omits times when all-term mode is requested. 213 tests and
+  production build/typecheck passed. Removed temporary schema-only diagnostics and
+  their local output; no credentials or raw student records were saved.
+- Local only; not committed, pushed, or deployed.
+
+## 2026-10-22 — Correct local StudentVUE provider
+
+- Set missing provider to mobile in ignored local .env and restarted the backend.
+- Local health endpoint returned 200; live sign-in awaits user retry. No production
+  configuration or application code changed.
+
+## 2026-10-22 — Verify Gradr countdown sources
+
+- Checked public Gradr frontend, school calendar endpoints, and mobile reference
+  parser. Gradr combines StudentVUE school/course data with separate bell presets;
+  its published mobile parser leaves start/end times empty.
+- Blair calendar combines odd/even periods; no verified direct-Synergy daily
+  contract found. Recorded evidence and next investigation step in the handoff.
+- Documentation only; no runtime changes, credentials sent, deployment, or claim
+  that automatic countdown is fixed. Application tests were not rerun.
+
 ## 2026-10-21 — Resolve main merge
 
 - Combined local countdown commit `7ea53ef` with remote main through `9515206`:

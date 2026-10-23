@@ -262,8 +262,8 @@ export function parseMobileGradebook(
   };
 }
 
-// StudentClassList is evidenced by Zillorz/svue-api PR #2. Daily JSON containers
-// below support the legacy daily structure's camel/Pascal-case equivalents.
+// Daily camel-case structure verified against the MCPS mobile response (Oct 22).
+// Also accept the legacy daily structure's Pascal-case equivalents.
 // Do not treat the all-terms class list as today's actual bell schedule.
 export function parseMobileSchedule(data: unknown): TodaySchedule {
   const result: TodaySchedule = { fetchedAt: new Date().toISOString(), meetings: [], available: false };
@@ -402,7 +402,9 @@ export class StudentVueMobileClient implements GradebookClient {
   async schedule(): Promise<TodaySchedule> {
     this.assertConnected();
     await this.login();
-    const inner = { childIntID: 0, loadAllTerms: true, conSchOrgYearGU: "", conSchTermIndex: "-1", termIndex: "-1" };
+    // MCPS only includes todayScheduleInfoData when loadAllTerms is false.
+    // Asking for all terms returns course lists without daily bell times.
+    const inner = { childIntID: 0, loadAllTerms: false, conSchOrgYearGU: "", conSchTermIndex: "-1", termIndex: "-1" };
     let json = await this.post("StudentClassList", inner, `Bearer ${this.token}`);
     if (text(object(json.error)?.code) === "401") {
       this.token = "";

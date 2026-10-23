@@ -1,7 +1,65 @@
 # StudentVUE connection handoff
 
-Updated October 21, 2026. This records implementation evidence and unresolved
+Updated October 22, 2026. This records implementation evidence and unresolved
 work, not a claim that every connection works with a live account.
+
+## October 22: additional backup schools
+
+Fallback presets now include Wootton, Churchill, Poolesville, Frost, Cabin John,
+Hoover and North Bethesda. Sources are the Google Docs linked by the official
+MCPS school websites; exact document URLs are retained in bell-schedules.ts and
+shown as "Official bell schedule" in the UI. No external runtime requests added.
+Middle schools persist a grade-level choice to select the correct lunch gaps.
+Only numbered class periods are mapped. Regular/early/delay presets included;
+other testing or assembly days still need custom times or pause. Poolesville's
+currently linked document is titled 2023–24; UI flags this and requires an explicit
+day selection. Do not silently present it as verified for 2026–27. Live Synergy
+times still take priority. 216 tests/build/typecheck and local dropdown checks pass.
+
+## October 22: live MCPS daily schedule fix — supersedes hypotheses below
+
+With the user's local mobile session, compared StudentClassList responses using
+schema-only diagnostics (field names/types; no tokens, credentials or record values).
+The request with loadAllTerms=true returns studentClassScheduleForAllTerms and a
+null studentClassSchedule. With loadAllTerms=false, the daily path is present:
+studentClassSchedule.todayScheduleInfoData.schoolInfos[].classes[]. Each class
+has period, className, startTime, endTime, roomName, teacherName. This live response
+contained five meetings with clock-string start/end times. The existing parser
+already accepts this structure. Changed the flag to false; no new endpoint needed.
+The local UI confirmed automatic StudentVUE times after reconnecting. Verification
+was after school hours, so no active-class countdown was visually checked.
+
+Tests use fictional values in this observed structure and simulate the distinction
+between all-term and daily responses. 213 tests/build/typecheck passed. Temporary
+diagnostics and their ignored local output were removed. Not pushed or deployed.
+This supersedes the “need an upstream contract” next step below: direct Synergy
+bell-time support now has live evidence, independently of Gradr's external calendar.
+
+## October 22: Gradr schedule research
+
+Local connection follow-up (October 22): local .env lacked STUDENTVUE_PROXY_PROVIDER, causing the GradeDurian default. Set the ignored local configuration to mobile and restarted the watched backend; /api/health returned 200. Live StudentVUE sign-in still requires user retry. No Render settings changed.
+
+User reports automatic Synergy times still unavailable. Inspected Gradr's public
+schedule page bundle `page-5ed364d46bc2c366.js` and credential-free endpoints:
+- `/api/schools` lists school names/abbreviations.
+- `/api/schedules/mbhs` returns named bell presets; `/api/school/mbhs` returns
+  the selected schedule plus school calendar metadata. Response identifies
+  SchoolNest. Blair currently returns combined periods 1/2, 3/4, and 7/8, not
+  an explicit odd/even daily course list. Do not infer today's block from this.
+- Frontend gets the student's school from `axum-svue.fly.dev/school`, matches
+  its name against the catalog, then selects the external school's bell schedule.
+  Its separate StudentVUE `/schedule` request supplies course/period information.
+- Public backend `src/api/school_info.rs` uses `GetSchoolInformationData` and
+  `studentSchoolInfoListing.school`. The migration schedule parser at commit
+  `d75f42946408d542b36f4dd7a9596f6de9292d7a` calls StudentClassList but explicitly
+  assigns empty start_time/end_time. Current public main has no schedule module.
+
+This verifies an alternative automatic school-matching approach, not direct
+Synergy bell-time support. No student credentials or tokens were sent to Gradr.
+Do not silently add this calendar dependency or claim the existing hypothesized
+mobile daily parser is fixed. Next direct-Synergy step needs a privacy-safe shape
+inspection of the actual authenticated StudentClassList response, or a verified
+upstream daily schedule contract. No application behavior changed in this research.
 
 ## October 21: countdown fallback
 

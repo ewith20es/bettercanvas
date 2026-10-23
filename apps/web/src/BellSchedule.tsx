@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from "react";
-import { bellSchools, chosenDay, validBells, type BellPreference } from "./bell-schedules";
+import { bellSchools, chosenDay, validBells, type BellPreference, type SchoolGrade } from "./bell-schedules";
 
 export function BellSchedule({ value, onChange, today }: {
   value: BellPreference; onChange: (value: BellPreference) => void; today: string;
 }) {
   const school = bellSchools.find(s => s.id === value.school);
   const selected = chosenDay(value, today);
+  const needsGrade = !!school?.days.some(d => d.grade);
   const [error, setError] = useState("");
   const saveCustom = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -26,18 +27,26 @@ export function BellSchedule({ value, onChange, today }: {
     <div className="gb-bell-controls">
       <label>School<select value={value.school} onChange={e => { setError(""); onChange({ ...value, school: e.target.value, date: "", day: "" }); }}>
         <option value="">Use StudentVUE times when available</option>
-        {bellSchools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        {(["High schools", "Middle schools"] as const).map(level => <optgroup key={level} label={level}>
+          {bellSchools.filter(s => s.level === level).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </optgroup>)}
         <option value="custom">Other school / custom times</option>
       </select></label>
-      {value.school && <label>Today’s schedule<select value={selected} onChange={e => onChange({ ...value, date: today, day: e.target.value })}>
+      {needsGrade && <label>Grade level<select value={value.grade ?? ""} onChange={e => onChange({ ...value, grade: e.target.value ? Number(e.target.value) as SchoolGrade : undefined, date: "", day: "" })}>
+        <option value="">Choose your grade</option>
+        {[6, 7, 8].map(grade => <option key={grade} value={grade}>Grade {grade}</option>)}
+      </select></label>}
+      {value.school && <label>Today’s schedule<select disabled={needsGrade && !value.grade} value={selected} onChange={e => onChange({ ...value, date: today, day: e.target.value })}>
         <option value="">Choose today’s schedule</option>
-        {(school?.days ?? [{ id: "custom", name: "My bell times" }]).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+        {(school?.days.filter(d => !d.grade || d.grade === value.grade) ?? [{ id: "custom", name: "My bell times" }]).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         <option value="off">No school / pause today</option>
       </select></label>}
     </div>
     <p className="gb-bell-note">{value.school
       ? "Countdowns use Eastern time. Choose the correct schedule for today; holidays and special schedules are not detected automatically."
       : "StudentVUE isn’t supplying bell times? Choose your school to restore the class countdown."}
+      {needsGrade && <> Grade level sets your class times around lunch.</>}
+      {school?.note && <> {school.note}</>}
       {school && <> <a href={school.source} target="_blank" rel="noreferrer">Official bell schedule</a></>}
     </p>
     {value.school === "custom" && <details open={!value.custom.length}>
