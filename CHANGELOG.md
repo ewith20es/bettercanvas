@@ -4,6 +4,10 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-31 — Calculate fractional course percentages
+
+Course percentages now refine whole marks using weighted category totals or, when no categories are supplied, a labeled total-points estimate. Results must round back to the reported mark. N/A and hidden percentages stay unavailable. 221 tests and the production build passed; local only.
+
 ## 2026-10-31 — Show unavailable quarter grades as N/A
 
 - Explicit ungraded marks suppress placeholder percentages. In the mobile feed,

@@ -23,6 +23,8 @@ optional Canvas offline storage. One Render web service serves frontend and API.
 
 ## Current work and verification
 
+Course percentages now refine whole marks using weighted category totals or, when no categories are supplied, a labeled total-points estimate. Results must round back to the reported mark. N/A and hidden percentages stay unavailable. 221 tests and the production build passed; local only.
+
 October 31: unavailable quarter grades display N/A; actual zero grades remain visible. Fractional percentages display up to two decimals when supplied. Tested locally; not deployed.
 
 October 22 backup expansion: added seven requested schools (Wootton, Churchill,

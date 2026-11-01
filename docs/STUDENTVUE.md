@@ -3,6 +3,10 @@
 Updated October 22, 2026. This records implementation evidence and unresolved
 work, not a claim that every connection works with a live account.
 
+## October 31: grade precision
+
+Course percentages now refine whole marks using weighted category totals or, when no categories are supplied, a labeled total-points estimate. Results must round back to the reported mark. N/A and hidden percentages stay unavailable. 221 tests and the production build passed; local only.
+
 ## October 22: additional backup schools
 
 Fallback presets now include Wootton, Churchill, Poolesville, Frost, Cabin John,

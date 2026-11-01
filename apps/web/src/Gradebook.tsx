@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -31,6 +32,7 @@ import { BellSchedule } from "./BellSchedule";
 import { readBellPreference, schoolClock, selectedBells, type BellPreference } from "./bell-schedules";
 import {
   activeMeeting,
+  coursePercentage,
   clockLabel,
   estimateGrade,
   gradeDisplay,
@@ -56,6 +58,13 @@ import "@fontsource-variable/manrope";
 const studentVue = "https://md-mcps-psv.edupoint.com/PXP2_GradeBook.aspx?AGU=0";
 const percent = (n: number | null) =>
   n === null ? "—" : `${Number(n.toFixed(2))}%`;
+function CoursePercentage({ mark }: { mark: GradeMark }) {
+  const { value, basis } = useMemo(() => coursePercentage(mark), [mark]);
+  if (value === null) return null;
+  const hint = basis === "points" ? "Estimated from graded assignment points; category weights were not provided."
+    : basis === "weighted" ? "Calculated from StudentVUE category points and weights." : undefined;
+  return <span title={hint}> ({basis === "points" ? "≈" : ""}{percent(value)})</span>;
+}
 // Use the same MCPS scale for course letters, category bars and score colors.
 const scoreTone = (value: number | null) => gradeTone(letterFromPercent(value));
 const calculatedGradeHint =
@@ -761,10 +770,7 @@ export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; 
                             }
                           >
                             {grade.letter}
-                            {m?.percent !== null &&
-                              m?.percent !== undefined && (
-                                <span> ({percent(m.percent)})</span>
-                              )}
+                            {m && <CoursePercentage mark={m} />}
                           </strong>
                           <span className="gb-view-button">View</span>
                         </div>
@@ -820,10 +826,7 @@ export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; 
                               }
                             >
                               <strong>{grade.letter}</strong>
-                              {m?.percent !== null &&
-                                m?.percent !== undefined && (
-                                  <span> ({percent(m.percent)})</span>
-                                )}
+                              {m && <CoursePercentage mark={m} />}
                             </td>
                           </tr>
                         );
@@ -1077,7 +1080,8 @@ function MarkDetails({
   const changed = rows.length > 0 || Object.keys(overrides).length > 0;
   const estimate = estimateGrade(adjusted);
   const baseline = estimateGrade(categories);
-  const shown = changed && estimate !== null ? estimate : mark.percent;
+  const actual = useMemo(() => coursePercentage(mark), [mark]);
+  const shown = changed && estimate !== null ? estimate : actual.value;
   const grade = gradeDisplay(mark);
 
   const assignments = [...mark.assignments]
@@ -1103,7 +1107,7 @@ function MarkDetails({
           title={grade.calculated ? calculatedGradeHint : undefined}
         >
           <strong>{grade.letter}</strong>
-          {mark.percent !== null && <span>({percent(mark.percent)})</span>}
+          <CoursePercentage mark={mark} />
         </div>
         {changed && estimate !== null && (
           <span className="gb-estimate-chip">
@@ -1120,7 +1124,7 @@ function MarkDetails({
       >
         <span className="gb-bar-fill" style={barStyle(shown)} />
         <span className="gb-bar-label">
-          Total{shown !== null ? ` (${percent(shown)})` : ""}
+          Total{shown !== null ? ` (${!(changed && estimate !== null) && actual.basis === "points" ? "≈" : ""}${percent(shown)})` : ""}
         </span>
       </div>
       {categories.map((c, i) => {

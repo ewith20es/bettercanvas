@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   gradeDisplay,
+  coursePercentage, type GradeMark, type GradeAssignment,
   letterFromPercent,
 } from "../packages/domain/src/gradebook";
 
@@ -84,5 +85,28 @@ describe("MCPS percentage-to-letter display", () => {
       tone: "f",
       calculated: true,
     });
+  });
+});
+
+describe("course percentage precision", () => {
+  const row: GradeAssignment = { id: "1", name: "Quiz", category: "Practice", due: "", assigned: "", score: "14", earned: 14, possible: 15, notes: "", excluded: false, missing: false };
+  const mark: GradeMark = { name: "MP1", letter: "A", percent: 93, assignments: [row, { ...row, earned: 0, excluded: true }], categories: [] };
+  it("uses published weights before assignment points", () => {
+    const categories = [
+      { name: "Tests", earned: 28, possible: 30, weight: 75, reportedGrade: "" },
+      { name: "Practice", earned: 93, possible: 100, weight: 25, reportedGrade: "" },
+    ];
+    const result = coursePercentage({ ...mark, categories });
+    expect(result.basis).toBe("weighted");
+    expect(result.value?.toFixed(2)).toBe("93.25");
+  });
+  it("labels a points-only result and ignores excused work", () => {
+    const result = coursePercentage(mark);
+    expect(result.basis).toBe("points");
+    expect(result.value?.toFixed(2)).toBe("93.33");
+  });
+  it("preserves unavailable, fractional, unexplained and incomplete marks", () => {
+    for (const percent of [null, 92.7, 85]) expect(coursePercentage({ ...mark, percent })).toEqual({ value: percent, basis: "reported" });
+    expect(coursePercentage({ ...mark, assignments: [{ ...row, possible: null }] }).basis).toBe("reported");
   });
 });

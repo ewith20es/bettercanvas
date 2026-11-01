@@ -92,6 +92,7 @@ function assignmentFrom(a: JsonObject, fallback: number): GradeAssignment {
   const display = /(?:\/|\bout\s+of\b)\s*(-?\d+(?:\.\d+)?)\s*$/i.exec(
     text(a.displayScore),
   );
+  const displayPoints = /^\s*(-?\d+(?:\.\d+)?)\s*(?:\/|out\s+of)\s*(-?\d+(?:\.\d+)?)\s*$/i.exec(text(a.displayScore));
   const rubric = /rubric\D*\d+(?:\.\d+)?\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)/i.exec(
     text(a.scoreType),
   );
@@ -124,7 +125,7 @@ function assignmentFrom(a: JsonObject, fallback: number): GradeAssignment {
     assigned: date(a.date),
     score,
     earned: numeric(a.score) ?? numeric(split?.[1]) ??
-      (/^0(?:\.0+)?\s*%$/.test(score) ? 0 : null),
+      (/^0(?:\.0+)?\s*%$/.test(score) ? 0 : numeric(displayPoints?.[1])),
     possible,
     notes,
     excluded,
