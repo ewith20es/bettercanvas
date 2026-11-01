@@ -1,3 +1,4 @@
+import { reportedMark } from "../../../packages/domain/src/gradebook";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import type {
   ClassMeeting,
@@ -198,8 +199,7 @@ export function parseGradebook(
       teacher: attr(c, "Staff"),
       marks: list(node(c.Marks).Mark).map((m): GradeMark => ({
         name: attr(m, "MarkName") || period.name,
-        letter: attr(m, "CalculatedScoreString"),
-        percent: hidePercent ? null : number(attr(m, "CalculatedScoreRaw")),
+        ...reportedMark(attr(m, "CalculatedScoreString"), number(attr(m, "CalculatedScoreRaw")), hidePercent),
         categories: list(node(m.GradeCalculationSummary).AssignmentGradeCalc)
           .filter((cat) => !/^(total|overall)$/i.test(attr(cat, "Type")))
           .map((cat) => ({

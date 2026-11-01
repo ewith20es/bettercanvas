@@ -110,13 +110,27 @@ export function letterFromPercent(percent: number | null | undefined) {
   return "E";
 }
 
+// Synergy can pair an explicit ungraded mark with a numeric zero placeholder.
+const ungradedMark = /^(?:n\s*\/?\s*a|not\s*(?:graded|scored)|ungraded|[-–—])$/i;
+export function reportedMark(letter: string, raw: number | null, hidden = false) {
+  if (ungradedMark.test(letter.trim()))
+    return { letter: "N/A", percent: null };
+  const match = /^(\d+(?:\.\d+)?)\s*%?$/.exec(letter.trim());
+  const display = match ? Number(match[1]) : null;
+  // Some feeds supply a whole-number raw score and a more precise display score.
+  const precise = display !== null && Number.isFinite(display) &&
+    (raw === null || (Number.isInteger(raw) && Math.round(display) === raw)) ? display : raw;
+  return { letter, percent: hidden ? null : precise };
+}
+
 // CalculatedScoreString can contain a percentage before letters are posted.
 // Derive a display letter without changing Synergy's reported fields. Preserve
 // explicit letter grades and special marks such as P or I when provided.
 export function gradeDisplay(mark?: Pick<GradeMark, "letter" | "percent">) {
   const reported = mark?.letter.trim() ?? "";
+  if (ungradedMark.test(reported)) return { letter: "N/A", tone: "none", calculated: false };
   const canCalculate =
-    /^(?:n\/?a|not\s*(?:graded|scored)|ungraded|[-—])?$/i.test(reported) ||
+    !reported ||
     /^\d+(?:\.\d+)?\s*%?$/.test(reported);
   const fallback = canCalculate ? letterFromPercent(mark?.percent) : "N/A";
   const calculated = fallback !== "N/A";

@@ -4,6 +4,14 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-10-31 — Show unavailable quarter grades as N/A
+
+- Explicit ungraded marks suppress placeholder percentages. In the mobile feed,
+  an empty future quarter reporting a zero placeholder also displays N/A.
+  Actual zero grades remain E (0%). Retain fractional percentages when the
+  display score is more precise than a rounded whole-number raw score; the UI
+  shows up to two decimals. 218 tests and production build passed. Local only.
+
 ## 2026-10-22 — Expand backup school bell schedules
 
 - Added Wootton, Churchill and Poolesville high schools, plus Frost, Cabin John,

@@ -1,3 +1,4 @@
+import { reportedMark } from "../../../packages/domain/src/gradebook";
 import { load } from "cheerio/slim";
 import { CookieJar } from "tough-cookie";
 import type {
@@ -256,8 +257,7 @@ export function parseWebDetails(html: string, markName: string) {
   });
   return {
     name: markName,
-    letter: grade.find(".mark").first().text().trim(),
-    percent: numeric(grade.find(".score").first().text()),
+    ...reportedMark(grade.find(".mark").first().text().trim(), numeric(grade.find(".score").first().text())),
     categories: [],
     assignments,
   };

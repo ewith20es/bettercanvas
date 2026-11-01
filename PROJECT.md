@@ -1,6 +1,6 @@
 # Better Canvas — current project context
 
-Last updated: **October 22, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
+Last updated: **October 31, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
 and [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## Purpose and stack
@@ -22,6 +22,8 @@ optional Canvas offline storage. One Render web service serves frontend and API.
   and Render state before treating this dated snapshot as current.
 
 ## Current work and verification
+
+October 31: unavailable quarter grades display N/A; actual zero grades remain visible. Fractional percentages display up to two decimals when supplied. Tested locally; not deployed.
 
 October 22 backup expansion: added seven requested schools (Wootton, Churchill,
 Poolesville, Frost, Cabin John, Hoover, North Bethesda). Middle schools save grade

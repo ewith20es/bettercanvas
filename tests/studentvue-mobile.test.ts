@@ -91,6 +91,22 @@ function transport() {
 }
 
 describe("modern StudentVUE gradebook parser", () => {
+  it.each([
+    ["N/A", "0", "N/A", null],
+    ["0%", "0", "0%", 0],
+    ["93.83%", "94", "93.83%", 93.83],
+    ["94%", "93.827", "94%", 93.827],
+  ] as const)("preserves reported mark %s with raw score %s", (label, raw, letter, percent) => {
+    const data = book();
+    Object.assign(data.traditionalGradebook.courses[0].marks[0], { calculatedScoreString: label, calculatedScoreRaw: raw });
+    expect(parseMobileGradebook(data).courses[0].marks[0]).toMatchObject({ letter, percent });
+  });
+  it("ignores a zero placeholder in an empty future quarter", () => {
+    const data = book();
+    Object.assign(data.traditionalGradebook.reportingPeriods[1], { startDate: "9/1/2099", endDate: "11/1/2099" });
+    Object.assign(data.traditionalGradebook.courses[0].marks[0], { calculatedScoreString: "E", calculatedScoreRaw: 0, assignments: [] });
+    expect(parseMobileGradebook(data, 1).courses[0].marks[0]).toMatchObject({ letter: "N/A", percent: null });
+  });
   it("preserves zero percentages without inventing scores for ungraded work", () => {
     const data = book();
     data.traditionalGradebook.courses[0].marks[0].assignments[0].score = "0.00%";

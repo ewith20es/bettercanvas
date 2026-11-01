@@ -30,7 +30,7 @@ describe("MCPS percentage-to-letter display", () => {
     (percent) => expect(letterFromPercent(percent)).toBe("N/A"),
   );
 
-  it.each(["", "N/A", "—", "Not Graded", "76.47", "76.47%"])(
+  it.each(["", "76.47", "76.47%"])(
     "shows a calculated colored letter when StudentVUE returns %j",
     (letter) => {
       const mark = { letter, percent: 76.47 };
@@ -69,6 +69,8 @@ describe("MCPS percentage-to-letter display", () => {
     for (const mark of [
       undefined,
       { letter: "", percent: null },
+      { letter: "N/A", percent: 0 },
+      { letter: "Not Graded", percent: 0 },
       { letter: "100", percent: null },
     ]) {
       expect(gradeDisplay(mark)).toEqual({

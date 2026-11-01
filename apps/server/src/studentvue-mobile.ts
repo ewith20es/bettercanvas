@@ -1,3 +1,4 @@
+import { reportedMark } from "../../../packages/domain/src/gradebook";
 import type {
   GradeAssignment,
   Gradebook,
@@ -225,6 +226,10 @@ export function parseMobileGradebook(
           end: "",
         });
   }
+  const schoolDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  const futurePeriod = (period.start || periods.find(p => p.index === period.index)?.start || "") > schoolDate;
   let assignmentCount = 0;
   const hidePercent = truthy(gb.hidePercentSecondary);
   const courses = records(gb.courses, 200)
@@ -238,10 +243,12 @@ export function parseMobileGradebook(
         const assignments = records(m.assignments, maxAssignments);
         assignmentCount += assignments.length;
         if (assignmentCount > maxAssignments) throw unreadable();
+        const raw = numeric(m.calculatedScoreRaw, true);
+        const label = text(m.calculatedScoreString);
+        const futurePlaceholder = futurePeriod && !assignments.length && raw === 0 && /^(?:0(?:\.0+)?%?|[EF])?$/i.test(label);
         return {
           name: text(m.markName) || period.name,
-          letter: text(m.calculatedScoreString),
-          percent: hidePercent ? null : numeric(m.calculatedScoreRaw, true),
+          ...reportedMark(futurePlaceholder ? "N/A" : label, raw, hidePercent),
           categories: categoriesFrom(m.gradeCalculationSummary),
           assignments: assignments.map(assignmentFrom),
         };
