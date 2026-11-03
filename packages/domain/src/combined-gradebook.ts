@@ -42,9 +42,12 @@ function matchCourse(course: Course, courses: GradeCourse[]) {
   const matches = courses.filter((c) => {
     if (period !== undefined && c.period !== null && c.period !== period)
       return false;
-    const title = words(c.name);
+    // StudentVUE may append a catalog code such as "(ITC2013A)" that Canvas
+    // omits. Keep the full title usable when both portals include the code.
+    const shortName = c.name.replace(/\s*\([A-Z]{2,5}\d{3,5}[A-Z\d]*\)\s*$/i, "");
+    const titles = (shortName === c.name ? [c.name] : [c.name, shortName]).map(words);
     const surname = words(c.teacher.split(",")[0]).split(" ").at(-1);
-    return (
+    return titles.some(title =>
       !!title &&
       names.some((n) => {
         if (n === title) return true;

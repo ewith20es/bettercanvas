@@ -4,6 +4,14 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-11-02 — Match StudentVUE course headings with catalog codes
+
+The signed-in gradebook showed a parenthesized catalog code after the course
+title. Canvas omits that code, so the entire class was skipped during the merge.
+Course matching now also checks the title without a trailing catalog code.
+A synthetic regression reproduced the old score before the fix and verified
+one updated row afterward. All 231 tests, typecheck and production build passed.
+
 ## 2026-11-02 — Combine Canvas scores with the optional unofficial gradebook
 
 - Added Official (StudentVUE) and Unofficial (Canvas + StudentVUE) above the bell

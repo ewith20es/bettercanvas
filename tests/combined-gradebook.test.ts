@@ -14,6 +14,22 @@ function fixture() {
   return { book, canvas, original, merge };
 }
 
+it("merges a regraded quiz when StudentVUE appends a catalog code to the course title", () => {
+  const { book, canvas, original, merge } = fixture();
+  const course = book.courses[0];
+  Object.assign(course, { name: "Computer Science A (ITC1234A)", period: 8 });
+  Object.assign(canvas.courses[0], { name: "Computer Science A-Example-S1-2027",
+    code: "", sections: ["Computer Science A-P08-Example"] });
+  const quiz = canvas.assignments[0];
+  Object.assign(quiz, { name: "AT Spreadsheet Quiz R", dueAt: "2026-10-30T19:30:00Z", points: 18 });
+  quiz.submission!.score = 18;
+  Object.assign(original.assignments[2], { name: quiz.name, due: "2026-10-30", earned: 17, possible: 18 });
+  const result = merge().assignments.filter(a => a.name === quiz.name);
+  expect(result).toHaveLength(1);
+  expect(result[0]).toMatchObject({ id: "3", earned: 18, possible: 18, canvasChange: "updated" });
+  expect(original.assignments[2].earned).toBe(17);
+});
+
 it("matches MCPS sections and normalized titles, and applies category deltas only once", () => {
   const { book, canvas, original, merge } = fixture();
   const before = structuredClone(book);

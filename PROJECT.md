@@ -23,6 +23,11 @@ optional Canvas offline storage. One Render web service serves frontend and API.
 
 ## Current work and verification
 
+November 2 follow-up: Live StudentVUE course titles can end in a parenthesized
+catalog code that Canvas omits. The unofficial gradebook now accepts both title
+forms. The reported quiz mismatch was reproduced in a regression test. All 231
+tests and the production build passed.
+
 November 2: Gradebook opens in Official mode. The optional unofficial view merges
 the Canvas snapshot with the selected StudentVUE class and quarter in memory.
 Matching and estimate calculations live in `packages/domain/src/combined-gradebook.ts`.
