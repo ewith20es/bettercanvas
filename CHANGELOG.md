@@ -4,6 +4,36 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-11-03 — Only add scored Canvas assignments
+
+The unofficial gradebook skips Canvas-only assignments until they have a
+current numeric score. Posted zeros and scored extra credit still appear.
+All 232 tests and the production build passed. Local only.
+
+## 2026-11-03 — Highlight courses with Canvas changes
+
+The unofficial overview marks cards and list rows with a blue edge and badge
+when any assignment in that course was added or updated. Course details explain
+why an unofficial estimate was withheld, naming the affected assignment and
+category when available. All 231 tests and the production build passed. Local only.
+
+## 2026-11-03 — Course matching audit
+
+All eight scheduled classes in a fresh Canvas course list routed a distinct
+test assignment to the expected period in the reference gradebook. Four
+non-class enrollments routed none. The separate gradebook browser required
+sign-in, so the audit did not independently retrieve all live StudentVUE rows.
+Using the [2026–27 MCPS catalog](https://coursecatalog.montgomeryschoolsmd.org/CourseContentLists/CoursesContent),
+all 1,147 distinct title/code combinations (664 titles across 22 subject
+tables) updated a test score with a simulated StudentVUE catalog-code suffix
+and Canvas teacher/period suffixes. Other schools' live naming conventions
+remain unverified. All nine combined-gradebook tests passed. No runtime change.
+
+## 2026-11-03 — Optional self-hosting poll
+
+Added a prefilled GitHub vote and results link after the README deployment steps.
+Voting is voluntary and public; no application telemetry was added.
+
 ## 2026-11-02 — Match StudentVUE course headings with catalog codes
 
 The signed-in gradebook showed a parenthesized catalog code after the course

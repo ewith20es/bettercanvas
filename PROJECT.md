@@ -1,6 +1,6 @@
 # Better Canvas — current project context
 
-Last updated: **November 2, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
+Last updated: **November 3, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
 and [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## Purpose and stack
@@ -22,6 +22,10 @@ optional Canvas offline storage. One Render web service serves frontend and API.
   and Render state before treating this dated snapshot as current.
 
 ## Current work and verification
+
+November 3: unofficial gradebook cards and list rows highlight Canvas changes.
+Canvas-only assignments appear once they have a current numeric score.
+Course details now explain unavailable estimates. Verified locally, not deployed.
 
 November 2 follow-up: Live StudentVUE course titles can end in a parenthesized
 catalog code that Canvas omits. The unofficial gradebook now accepts both title

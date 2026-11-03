@@ -92,15 +92,19 @@ function overlay(
 ): GradeMark {
   const assignments = [...mark.assignments];
   const categories = mark.categories.map((c) => ({ ...c }));
-  let totalsKnown = true,
-    scoreChanged = false;
+  let reason: string | undefined;
+  let scoreChanged = false;
   function count(a: GradeAssignment, direction: 1 | -1) {
     if (!hasGradeScore(a)) return;
     scoreChanged = true;
     if (!categories.length) return;
     const cat = categories.find((c) => c.name === a.category);
     if (!cat || a.earned === null || a.possible === null) {
-      totalsKnown = false;
+      reason ??= !cat
+        ? a.category
+          ? `“${a.name}” is in “${a.category}”, which has no matching StudentVUE grading category.`
+          : `“${a.name}” has no grading category.`
+        : `“${a.name}” is missing the points needed to update its category total.`;
       return;
     }
     if (cat.earned !== null || cat.possible === 0)
@@ -112,6 +116,7 @@ function overlay(
   function apply({ row, due }: DatedAssignment, original?: GradeAssignment) {
     const sub = row.submission;
     const earned = sub?.currentGrade === false ? null : (sub?.score ?? null);
+    if (!original && earned === null) return;
     const excluded = !!(
       original?.excluded ||
       sub?.excused ||
@@ -192,7 +197,7 @@ function overlay(
   let value: number | null = null;
   if (categories.length) {
     if (
-      totalsKnown &&
+      !reason &&
       categories.every((c) => c.earned === null || c.earned >= 0)
     )
       value = estimateGrade(categories);
@@ -204,6 +209,9 @@ function overlay(
     assignments,
     categories,
     percent: value,
+    canvasEstimateReason: value === null ? reason ?? (categories.length
+      ? "The category weights and point totals do not support a weighted average."
+      : "There are insufficient graded assignment points to calculate a percentage.") : undefined,
     letter: letterFromPercent(value),
     canvasEstimate:
       value === null

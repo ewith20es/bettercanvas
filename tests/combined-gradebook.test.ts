@@ -131,12 +131,12 @@ it("pairs repeated titles by due date and leaves ambiguous scores alone", () => 
   expect(merge()).toEqual(original);
 });
 
-it("retains distinct exercise numbers and leaves ungraded and excused additions out of totals", () => {
+it("retains distinct exercise numbers and leaves excluded scores out of totals", () => {
   const { canvas, original, merge } = fixture();
   original.assignments[2].name = "Unit 2 HW 2";
   const row = canvas.assignments[0];
   canvas.assignments = [
-    { ...row, name: "(P) Unit 2 HW 1", submission: null },
+    { ...row, name: "(P) Unit 2 HW 1", submission: { ...row.submission!, score: 0 } },
     { ...row, id: "excused", name: "Bonus", omitFromGrade: true },
   ];
   const mark = merge();
@@ -145,10 +145,21 @@ it("retains distinct exercise numbers and leaves ungraded and excused additions 
       .slice(-2)
       .map((a) => [a.canvasChange, a.earned, a.excluded]),
   ).toEqual([
-    ["added", null, false],
+    ["added", 0, false],
     ["added", 85, true],
   ]);
-  expect(mark.percent).toBe(original.percent);
+  expect(mark.categories[1].possible).toBe(original.categories[1].possible! + row.points!);
+});
+
+it("skips Canvas-only placeholders and superseded grades while retaining scored extra credit", () => {
+  const { canvas, original, merge } = fixture();
+  const row = { ...canvas.assignments[1], points: 0 };
+  for (const submission of [null, { ...row.submission!, score: null }, { ...row.submission!, currentGrade: false }]) {
+    canvas.assignments = [{ ...row, submission }];
+    expect(merge()).toBe(original);
+  }
+  canvas.assignments = [row];
+  expect(merge().assignments.at(-1)).toMatchObject({ canvasChange: "added", earned: 8, possible: 0 });
 });
 
 it("labels points-only estimates and withholds weighted estimates with unknown inputs", () => {
@@ -158,6 +169,7 @@ it("labels points-only estimates and withholds weighted estimates with unknown i
   expect(merge()).toMatchObject({
     percent: null,
     canvasEstimate: "unavailable",
+    canvasEstimateReason: expect.stringContaining("Unmapped group"),
   });
   original.categories = [];
   expect(merge().percent).toBeCloseTo(((94 + 85 + 8) / 210) * 100);

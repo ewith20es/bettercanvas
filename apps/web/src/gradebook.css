@@ -305,6 +305,10 @@
   font-weight: 600;
   line-height: 28px;
 }
+.gb-course[data-canvas-changed],
+.gb-course-table tr[data-canvas-changed] > td:first-child {
+  border-inline-start: 4px solid #518ee9;
+}
 [data-theme="dark"] .gb-card-period {
   color: #6b7280;
 }

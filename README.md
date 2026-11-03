@@ -79,6 +79,12 @@ You can change any of these later in Render: open your service, then **Environme
 6. **Optional, for grades:** open **Gradebook**, choose **Student ID and password**, and sign in with your MCPS student ID and StudentVUE password. The Gradebook gets your periods, rooms and bell schedule from StudentVUE automatically.
 7. **Optional, on your phone:** open your site and use **Share → Add to Home Screen** (iPhone, in Safari) or **Install app** (Android/Chrome). **Settings → Install the app** also shows how.
 
+### Optional poll: Did you host your own copy?
+
+Once your copy is running, you can [vote “I hosted my own copy” on GitHub](https://github.com/ewith20es/bettercanvas/issues/new?title=Self-host%20poll%3A%20I%20hosted%20my%20own%20copy&body=I%20hosted%20my%20own%20copy.). Sign in and submit the prefilled issue once per person. Your GitHub username and vote will be public. No site URL, school information, or credentials are needed.
+
+[See the reported votes](https://github.com/ewith20es/bettercanvas/issues?q=is%3Aissue%20in%3Atitle%20%22Self-host%20poll%3A%20I%20hosted%20my%20own%20copy%22). This counts voluntary reports, not every deployment.
+
 ### Good to know
 
 - **Your site shows "Demo workspace" or sample data?** `CANVAS_ACCESS_TOKEN` is empty. Add it in Render → **Environment** (see below).

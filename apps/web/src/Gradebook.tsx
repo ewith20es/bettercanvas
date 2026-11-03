@@ -62,9 +62,12 @@ import "@fontsource-variable/manrope";
 const studentVue = "https://md-mcps-psv.edupoint.com/PXP2_GradeBook.aspx?AGU=0";
 const percent = (n: number | null) =>
   n === null ? "—" : `${Number(n.toFixed(2))}%`;
+const hasCanvasChanges = (course: GradeCourse) =>
+  course.marks.some(mark => mark.assignments.some(a => a.canvasChange));
+
 function CoursePercentage({ mark }: { mark: GradeMark }) {
   const { value, basis } = useMemo(() => coursePercentage(mark), [mark]);
-  if (value === null) return mark.canvasEstimate ? <small> · Estimate unavailable</small> : null;
+  if (value === null) return mark.canvasEstimate ? <small title={mark.canvasEstimateReason}> · Estimate unavailable</small> : null;
   const hint = mark.canvasEstimate ? (basis === "points" ? "Unofficial estimate from combined assignment points." : "Unofficial estimate using StudentVUE category weights.")
     : basis === "points" ? "Estimated from graded assignment points; category weights were not provided."
     : basis === "weighted" ? "Calculated from StudentVUE category points and weights." : undefined;
@@ -759,6 +762,7 @@ export function Gradebook({ canvas, account, canvasStatus, refreshCanvas }: {
                 <div className="gb-grid">
                   {courses.map((c) => {
                     const m = c.marks[0];
+                    const canvasChanged = hasCanvasChanges(c);
                     const grade = gradeDisplay(m);
                     const live =
                       countdown !== null &&
@@ -768,6 +772,7 @@ export function Gradebook({ canvas, account, canvasStatus, refreshCanvas }: {
                       <button
                         key={c.id}
                         className="gb-course"
+                        data-canvas-changed={canvasChanged || undefined}
                         data-grade={grade.tone}
                         data-live={live ? "true" : undefined}
                         onClick={() => setParams({ course: c.id })}
@@ -777,6 +782,7 @@ export function Gradebook({ canvas, account, canvasStatus, refreshCanvas }: {
                         </span>
                         <div className="gb-card-info">
                           <h3>{c.name}</h3>
+                          {canvasChanged && <span className="badge blue">Canvas changes</span>}
                           <p className="gb-card-teacher">
                             {c.teacher || "Teacher not provided"}
                             {live && (
@@ -819,13 +825,14 @@ export function Gradebook({ canvas, account, canvasStatus, refreshCanvas }: {
                     <tbody>
                       {courses.map((c) => {
                         const m = c.marks[0];
+                        const canvasChanged = hasCanvasChanges(c);
                         const grade = gradeDisplay(m);
                         const live =
                           countdown !== null &&
                           c.period !== null &&
                           countdown.period === c.period;
                         return (
-                          <tr key={c.id} data-live={live ? "true" : undefined}>
+                          <tr key={c.id} data-live={live ? "true" : undefined} data-canvas-changed={canvasChanged || undefined}>
                             <td>{c.period === null ? "—" : c.period}</td>
                             <td>
                               <button
@@ -834,6 +841,7 @@ export function Gradebook({ canvas, account, canvasStatus, refreshCanvas }: {
                               >
                                 {c.name}
                               </button>
+                              {canvasChanged && <span className="badge blue">Canvas changes</span>}
                               {live && (
                                 <span
                                   className={`gb-countdown ${urgency(countdown.secondsLeft)}`}
@@ -1178,6 +1186,7 @@ function MarkDetails({
           </span>
         )}
       </div>
+      {mark.canvasEstimateReason && <p>{mark.canvasEstimateReason}</p>}
       <div
         className="gb-bar gb-bar-total"
         data-grade={

@@ -32,6 +32,7 @@ export type GradeMark = {
   categories: GradeCategory[];
   assignments: GradeAssignment[];
   canvasEstimate?: "weighted" | "points" | "unavailable";
+  canvasEstimateReason?: string;
 };
 export type GradeCourse = {
   id: string;
