@@ -61,7 +61,7 @@ function matchCourse(course: Course, courses: GradeCourse[]) {
   return matches.length === 1 ? matches[0] : undefined;
 }
 
-type DatedAssignment = { row: Assignment; due: string; inPeriod: boolean };
+type DatedAssignment = { row: Assignment; due: string };
 const quarter = (name: string) =>
   /^(?:mp|marking period|quarter|qtr|q)\s*([1-4])$/i.exec(name.trim())?.[1];
 function scopedAssignment(
@@ -71,19 +71,11 @@ function scopedAssignment(
   const due = row.dueAt ? dayKey(row.dueAt) : "";
   const canvasQuarter = quarter(row.gradingPeriod ?? ""),
     selectedQuarter = quarter(period.name);
+  if (due && ((period.start && due < period.start) || (period.end && due > period.end))) return null;
   if (canvasQuarter && selectedQuarter)
-    return canvasQuarter === selectedQuarter
-      ? { row, due, inPeriod: true }
-      : null;
-  const evidence =
-    row.dueAt ?? row.submission?.submittedAt ?? row.submission?.gradedAt;
-  const when = due || (evidence ? dayKey(evidence) : "");
-  if (
-    when &&
-    ((period.start && when < period.start) || (period.end && when > period.end))
-  )
-    return null;
-  return { row, due, inPeriod: !!(when && period.start && period.end) };
+    return canvasQuarter === selectedQuarter ? { row, due } : null;
+  // Late submissions and regrades can occur in a different quarter.
+  return due && period.start && period.end ? { row, due } : null;
 }
 
 function overlay(
@@ -187,11 +179,10 @@ function overlay(
     });
     const candidates = originals.filter((a) => !matched.has(a));
     if (!candidates.length && allowAdds) {
-      for (const r of remaining) if (r.inPeriod) apply(r);
+      for (const r of remaining) apply(r);
     } else if (
       remaining.length === 1 &&
-      candidates.length === 1 &&
-      remaining[0].inPeriod
+      candidates.length === 1
     ) {
       apply(remaining[0], candidates[0]);
     }
@@ -236,9 +227,11 @@ export function combinedGradebook(
   const listed = book.periods.find((p) => p.index === book.period.index);
   const period = {
     ...book.period,
+    name: quarter(book.period.name) ? book.period.name : listed?.name || book.period.name,
     start: book.period.start || listed?.start || "",
     end: book.period.end || listed?.end || "",
   };
+  const selectedQuarter = quarter(period.name);
   const pairs = canvas.courses.map((c) => ({
     canvasId: c.id,
     course: matchCourse(c, book.courses),
@@ -261,9 +254,12 @@ export function combinedGradebook(
         assignments: [],
       };
       const marks = course.marks.length ? course.marks : [empty];
-      const merged = marks.map((m) =>
-        overlay(m, rows, marks.length === 1 || m.name === period.name),
-      );
+      const merged = marks.map((m) => {
+        const markQuarter = quarter(m.name);
+        if (markQuarter && selectedQuarter && markQuarter !== selectedQuarter) return m;
+        return overlay(m, rows, marks.length === 1 || m.name === period.name ||
+          (!!markQuarter && markQuarter === selectedQuarter));
+      });
       return merged.every((m, i) => m === marks[i])
         ? course
         : { ...course, marks: merged };

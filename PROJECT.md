@@ -26,6 +26,8 @@ optional Canvas offline storage. One Render web service serves frontend and API.
 November 3: unofficial gradebook cards and list rows highlight Canvas changes.
 Canvas-only assignments need a current numeric score. Both additions and updates
 require a StudentVUE category match and skip the Canvas Z Assignments group.
+Quarter membership requires a matching period label or an in-range due date.
+The merge skips conflicting quarter evidence and ignores submission and grading times.
 Course details now explain unavailable estimates. Verified locally, not deployed.
 
 November 2 follow-up: Live StudentVUE course titles can end in a parenthesized

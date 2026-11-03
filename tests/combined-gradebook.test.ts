@@ -100,6 +100,25 @@ it("uses the school-local date at the quarter boundary and never adds unplaceabl
   expect(merge().assignments).toHaveLength(4);
 });
 
+it("isolates repeated assignment names when switching quarters", () => {
+  const { book, canvas, original, merge } = fixture();
+  const q1 = { ...canvas.assignments[0], gradingPeriod: "MP 1" };
+  const q2 = { ...q1, id: "next-quarter", gradingPeriod: "MP 2", dueAt: "2026-11-06T18:00:00Z",
+    submission: { ...q1.submission!, score: 75 } };
+  canvas.assignments = [q1, q2];
+  expect(merge().assignments[2].earned).toBe(85);
+  book.period = book.periods[1];
+  original.assignments[2].due = "2026-11-06";
+  expect(merge().assignments[2].earned).toBe(75);
+  // Neither a contradictory quarter label nor a later grading timestamp proves membership.
+  canvas.assignments = [{ ...q1, gradingPeriod: "MP 2" }, { ...q2, gradingPeriod: "MP 1" },
+    { ...q1, gradingPeriod: undefined, dueAt: null, submission: { ...q1.submission!, gradedAt: q2.dueAt } }];
+  expect(merge()).toBe(original);
+  book.period.start = book.period.end = "";
+  canvas.assignments = [{ ...q2, gradingPeriod: undefined }];
+  expect(merge()).toBe(original);
+});
+
 it("does not import another class, ambiguous section or live data into a preview", () => {
   const { canvas, original, merge } = fixture();
   canvas.courses[0].sections = ["Hon English 9A-P02"];

@@ -4,6 +4,14 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-11-03 — Isolate unofficial assignments by quarter
+
+Both additions and overrides require a matching marking period or a due date
+inside the selected StudentVUE quarter. Conflicting quarters and out-of-range
+dates are skipped. Late submission and grading timestamps no longer place work
+in a quarter. A regression switches quarters with identically named assignments.
+All 235 tests and the production build passed locally.
+
 ## 2026-11-03 — Limit Canvas merges to StudentVUE grading categories
 
 Canvas additions and updates now require a matching StudentVUE category in
