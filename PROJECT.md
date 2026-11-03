@@ -24,7 +24,8 @@ optional Canvas offline storage. One Render web service serves frontend and API.
 ## Current work and verification
 
 November 3: unofficial gradebook cards and list rows highlight Canvas changes.
-Canvas-only assignments appear once they have a current numeric score.
+Canvas-only assignments need a current numeric score. Both additions and updates
+require a StudentVUE category match and skip the Canvas Z Assignments group.
 Course details now explain unavailable estimates. Verified locally, not deployed.
 
 November 2 follow-up: Live StudentVUE course titles can end in a parenthesized

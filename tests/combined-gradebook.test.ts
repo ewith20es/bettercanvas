@@ -14,6 +14,19 @@ function fixture() {
   return { book, canvas, original, merge };
 }
 
+it("pairs encoded and literal ampersands without merging other vocabulary work", () => {
+  const { canvas, original, merge } = fixture();
+  const quiz = canvas.assignments[0];
+  canvas.assignments = [quiz];
+  quiz.name = "Prueba: Vocabulario Secciones 5 & 6 NRT (fecha de entrega: 19/10; fecha límite: 27/10)";
+  original.assignments[2].name = quiz.name.replace("&", "&amp;");
+  original.assignments[1].name = "Tarea: Práctica de Vocabulario Parte 2";
+  const result = merge();
+  expect(result.assignments).toHaveLength(original.assignments.length);
+  expect(result.assignments[2]).toMatchObject({ id: original.assignments[2].id, earned: 85, canvasChange: "updated" });
+  expect(result.assignments[1]).toEqual(original.assignments[1]);
+});
+
 it("merges a regraded quiz when StudentVUE appends a catalog code to the course title", () => {
   const { book, canvas, original, merge } = fixture();
   const course = book.courses[0];
@@ -162,18 +175,23 @@ it("skips Canvas-only placeholders and superseded grades while retaining scored 
   expect(merge().assignments.at(-1)).toMatchObject({ canvasChange: "added", earned: 8, possible: 0 });
 });
 
-it("labels points-only estimates and withholds weighted estimates with unknown inputs", () => {
+it("ignores Z, unknown and unlabeled Canvas groups for updates and additions", () => {
+  const { canvas, original, merge } = fixture();
+  original.categories.push({ ...original.categories[0], name: "Z Assignments" });
+  for (const group of ["z assignments", "Unmapped group", ""]) {
+    for (const row of canvas.assignments) row.group = group;
+    expect(merge()).toBe(original);
+  }
+});
+
+it("uses StudentVUE assignment categories when no category summary is available", () => {
   const { canvas, original, merge } = fixture();
   const row: Assignment = canvas.assignments[1];
-  row.group = "Unmapped group";
-  expect(merge()).toMatchObject({
-    percent: null,
-    canvasEstimate: "unavailable",
-    canvasEstimateReason: expect.stringContaining("Unmapped group"),
-  });
   original.categories = [];
   expect(merge().percent).toBeCloseTo(((94 + 85 + 8) / 210) * 100);
   expect(merge().canvasEstimate).toBe("points");
   row.points = null;
   expect(merge().percent).toBeNull();
+  original.assignments = [];
+  expect(merge()).toBe(original);
 });

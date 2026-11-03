@@ -25,6 +25,7 @@ const words = (s: string) =>
 const titleKey = (name: string) =>
   words(
     name
+      .replace(/&(?:amp|#0*38|#x0*26);/gi, "&")
       .replace(
         /^\s*(?:\((?:p|pp|ppr|at|ata)\)\s*|at\s*[:-]\s*|(?:pp|ppr|ata)\b[\s:-]*)/i,
         "",
@@ -92,6 +93,11 @@ function overlay(
 ): GradeMark {
   const assignments = [...mark.assignments];
   const categories = mark.categories.map((c) => ({ ...c }));
+  // Some StudentVUE connections expose categories only on assignment rows.
+  const categoryNames = categories.length
+    ? categories.map(c => c.name)
+    : mark.assignments.map(a => a.category);
+  const officialGroups = new Map(categoryNames.map(name => [words(name), name]));
   let reason: string | undefined;
   let scoreChanged = false;
   function count(a: GradeAssignment, direction: 1 | -1) {
@@ -131,13 +137,10 @@ function overlay(
       excluded === original.excluded
     )
       return;
-    const group = categories.find(
-      (c) => words(c.name) === words(row.group ?? ""),
-    );
     const merged: GradeAssignment = {
       id: original?.id ?? `canvas:${row.courseId}:${row.id}`,
       name: original?.name ?? row.name,
-      category: original?.category || group?.name || row.group || "",
+      category: original?.category || officialGroups.get(words(row.group ?? "")) || "",
       due: original?.due || due,
       assigned: original?.assigned ?? "",
       earned: earned ?? original?.earned ?? null,
@@ -157,6 +160,8 @@ function overlay(
 
   const byTitle = new Map<string, DatedAssignment[]>();
   for (const r of rows) {
+    const category = words(r.row.group ?? "");
+    if (!category || category === "z assignments" || !officialGroups.has(category)) continue;
     const key = titleKey(r.row.name);
     const group = byTitle.get(key);
     if (group) group.push(r);

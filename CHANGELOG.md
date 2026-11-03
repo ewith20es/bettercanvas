@@ -4,6 +4,20 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-11-03 — Limit Canvas merges to StudentVUE grading categories
+
+Canvas additions and updates now require a matching StudentVUE category in
+the selected course mark. Z Assignments and unlabeled groups are skipped.
+When category summaries are absent, official assignment category labels
+supply the allowed names. All 234 tests and the production build passed locally.
+
+## 2026-11-03 — Match escaped ampersands in assignment names
+
+The unofficial gradebook treats literal and HTML-encoded ampersands alike
+when pairing assignments. A vocabulary quiz regression checks that the Canvas
+score updates one existing row and leaves the separate practice assignment
+alone. All 233 tests and the production build passed. Local only.
+
 ## 2026-11-03 — Only add scored Canvas assignments
 
 The unofficial gradebook skips Canvas-only assignments until they have a
