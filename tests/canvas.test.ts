@@ -113,3 +113,18 @@ it("retains failed courses while replacing complete successful course snapshots"
   );
   expect(next.sync.find((s) => s.courseId === "2")?.error).toContain("denied");
 });
+
+it("resolves course-local assignment group and marking period names during Canvas sync", async () => {
+  const fetcher = vi.fn<typeof fetch>().mockImplementation(async input => {
+    const path = new URL(String(input)).pathname;
+    if (path.endsWith("/profile")) return json({ id: 42, name: "Student" });
+    if (path.endsWith("/courses")) return json([{ id: 1, name: "Science" }]);
+    if (path.endsWith("/assignment_groups")) return json([{ id: 10, name: "Practice" }]);
+    if (path.endsWith("/grading_periods")) return json({ grading_periods: [{ id: 8, title: "MP 1" }] });
+    return json([{ id: 7, name: "Review", assignment_group_id: 10, omit_from_final_grade: true,
+      submission_types: [], submission: { grading_period_id: 8, score: 0 } }]);
+  });
+  const result = await new CanvasClient(origin, "test", fetcher).sync();
+  expect(result.assignments[0]).toMatchObject({ group: "Practice", gradingPeriod: "MP 1",
+    omitFromGrade: true, submission: { score: 0 } });
+});

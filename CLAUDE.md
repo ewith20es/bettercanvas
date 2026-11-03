@@ -14,8 +14,10 @@
 
 ## Product decisions to preserve
 
-- This is a personal, read-only MCPS companion. Canvas supplies assignments and
-  submission status; **StudentVUE supplies grades. Never use Canvas grades as a fallback.**
+- This is a personal, read-only MCPS companion. StudentVUE supplies the official
+  gradebook. The user-selected unofficial view merges current Canvas scores
+  into the selected StudentVUE class and marking period in browser memory.
+  Keep Canvas changes labeled and separate from red what-if edits.
 - Submission status must be obvious. Missing includes both explicitly missing
   work and overdue unsubmitted work. Keep the missing indicator; no separate Overdue tab.
 - Hiding an assignment grays it in the current view, then moves it to Hidden on

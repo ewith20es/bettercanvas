@@ -1,9 +1,24 @@
+import { emptySubmission, type Assignment, type Snapshot } from "./index";
 import {
   letterFromPercent,
   type Gradebook,
   type GradeCourse,
   type TodaySchedule,
 } from "./gradebook";
+
+// Fixed to the same fictional quarter as the gradebook preview.
+export function demoGradebookCanvas(): Snapshot {
+  const course = { id: "sample-english", name: "Hon English 9A", code: "", url: "" };
+  const assignment = (id: string, name: string, due: string, score: number, points: number): Assignment => ({
+    id, courseId: course.id, name, url: "", dueAt: due, unlockAt: null, lockAt: null,
+    points, types: [], locked: false, group: "Practice / Preparation",
+    submission: { ...emptySubmission, state: "graded", score },
+  });
+  return { demo: true, account: { id: "demo", name: "Sample", origin: "" }, courses: [course],
+    assignments: [assignment("one", "PP: Reading notes", "2026-09-16T03:59:00Z", 85, 100),
+      assignment("two", "Discussion questions", "2026-09-19T03:59:00Z", 8, 10)],
+    sync: [], fetchedAt: null, error: null };
+}
 
 // A stand-in bell schedule so the class countdown is visible in the preview.
 // Blocks are anchored to the viewer's current hour so one class is always in

@@ -99,7 +99,7 @@ If something goes wrong, ask in the [support Discord](https://discord.gg/e7Cwd6Y
 - Hide announcement-like assignments with the eye button. They turn gray until you leave the current page or assignment tab. Find and restore them under Hidden, with search, course/status filters, and sorting by due date, name, or course. Hiding is saved per account on this device and does not change Canvas.
 - Calendar: assignment deadlines, month navigation, selected-day agenda, and undated work.
 - Courses: show/hide courses, local nicknames and colors.
-- Gradebook: StudentVUE connection, grading periods, schedule-ordered grade cards, course/category details, searchable and sortable assignment scores, and a what-if estimate for a new assignment.
+- Gradebook opens with official StudentVUE grades. Select **Unofficial (Canvas + StudentVUE)** above the bell settings to include current Canvas scores and new assignments for the selected class and quarter. Blue badges identify Canvas changes. Red rows are your own what-if edits. Combined and what-if percentages are estimates.
 - Settings: connection state, per-course update results, timezone, theme, optional offline data, installation instructions, clear data, and sign out.
 - Assignment details: due/submitted times, grading, missing/late flags, points, availability, and the Canvas link.
 

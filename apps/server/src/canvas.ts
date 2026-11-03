@@ -30,6 +30,7 @@ const submissionSchema = z.object({
   grade_matches_current_submission: flag,
   redo_request: flag,
   assignment_visible: z.boolean().optional(),
+  grading_period_id: id.nullish(),
 });
 const assignmentSchema = z.object({
   id,
@@ -39,6 +40,8 @@ const assignmentSchema = z.object({
   lock_at: time,
   html_url: z.string().optional(),
   points_possible: z.number().nullable().optional(),
+  assignment_group_id: id.nullish(),
+  omit_from_final_grade: z.boolean().optional(),
   submission_types: z.array(z.string()),
   locked_for_user: z.boolean().optional(),
   published: z.boolean().optional(),
@@ -78,6 +81,8 @@ export function normalizeAssignment(
   raw: unknown,
   courseId: string,
   origin: string,
+  groups?: Map<string, string>,
+  periods?: Map<string, string>,
 ): Assignment | null {
   const a = assignmentSchema.parse(raw);
   if (a.published === false || a.submission?.assignment_visible === false)
@@ -121,6 +126,9 @@ export function normalizeAssignment(
     unlockAt: a.unlock_at,
     lockAt: a.lock_at,
     points: a.points_possible ?? null,
+    group: a.assignment_group_id ? groups?.get(a.assignment_group_id) : undefined,
+    gradingPeriod: s?.grading_period_id ? periods?.get(s.grading_period_id) : undefined,
+    ...(a.omit_from_final_grade ? { omitFromGrade: true } : {}),
     types: a.submission_types,
     locked: a.locked_for_user ?? false,
     submission,
@@ -300,8 +308,20 @@ export class CanvasClient {
             const raw = await this.all(
               `/api/v1/courses/${encodeURIComponent(course.id)}/assignments?include%5B%5D=submission&per_page=100`,
             );
+            // Both lookups are optional. Keep the assignment snapshot usable
+            // when a course does not publish groups or grading periods.
+            const base = `/api/v1/courses/${encodeURIComponent(course.id)}`;
+            const [groups, periods] = raw.length ? await Promise.all([
+              this.all(`${base}/assignment_groups?per_page=100`).then(rows =>
+                new Map(z.array(z.object({ id, name: z.string() })).parse(rows).map(g => [g.id, g.name]))
+              ).catch(() => undefined),
+              this.request(`${base}/grading_periods?per_page=100`).then(r => r.json()).then(body =>
+                new Map(z.object({ grading_periods: z.array(z.object({ id, title: z.string() })) })
+                  .parse(body).grading_periods.map(p => [p.id, p.title]))
+              ).catch(() => undefined),
+            ]) : [];
             const assignments = raw
-              .map((a) => normalizeAssignment(a, course.id, this.origin))
+              .map((a) => normalizeAssignment(a, course.id, this.origin, groups, periods))
               .filter((a): a is Assignment => a !== null);
             result.assignments.push(...assignments);
             result.sync.push({

@@ -19,6 +19,10 @@ export type Assignment = {
   unlockAt: string | null;
   lockAt: string | null;
   points: number | null;
+  /** Canvas assignment group, when available from this sync. */
+  group?: string;
+  gradingPeriod?: string;
+  omitFromGrade?: boolean;
   types: string[];
   locked: boolean;
   submission: Submission | null;

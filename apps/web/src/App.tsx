@@ -483,7 +483,10 @@ export default function App() {
             <Route path="/courses" element={<Courses {...props} />} />
             <Route
               path="/gradebook"
-              element={<Gradebook key={accountKey(data)} account={accountKey(data)} demoWorkspace={data.demo} />}
+              element={<Gradebook key={accountKey(data)} account={accountKey(data)} canvas={data}
+                canvasStatus={offline || error || data.error || data.sync.some(s => !!s.error || !s.successAt ||
+                  now.getTime() - Date.parse(s.successAt) > 900000) ? "Canvas data may be incomplete or out of date." : ""}
+                refreshCanvas={refresh} />}
             />
             <Route
               path="/settings"

@@ -147,7 +147,8 @@ StudentVUE schedules prevent stale timer reuse. 208 tests and build passed; loca
   not an independent audit of Render settings or all grade payloads. Mobile mode
   does not fall back to GradeDurian and requires no manual cookie copying.
 
-- Grades must come from StudentVUE/Synergy, never Canvas.
+- Official grades come from StudentVUE/Synergy. As of November 2 the optional
+  unofficial gradebook can overlay Canvas scores after loading StudentVUE.
 - User normally signs into official MCPS StudentVUE with Google, uses a restricted
   school device, and cannot install a browser extension.
 - User wants automatic student-ID/password login without copying cookies.

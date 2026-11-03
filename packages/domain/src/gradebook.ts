@@ -16,6 +16,7 @@ export type GradeAssignment = {
   notes: string;
   excluded: boolean;
   missing: boolean;
+  canvasChange?: "added" | "updated";
 };
 export type GradeCategory = {
   name: string;
@@ -30,6 +31,7 @@ export type GradeMark = {
   percent: number | null;
   categories: GradeCategory[];
   assignments: GradeAssignment[];
+  canvasEstimate?: "weighted" | "points" | "unavailable";
 };
 export type GradeCourse = {
   id: string;
@@ -150,7 +152,7 @@ export type WhatIfEntry = {
   possible: number;
 };
 
-// Estimates use the category totals/weights returned by Synergy, never Canvas.
+// Estimates use StudentVUE category weights and the selected view's point totals.
 // Unknown weights or totals must not silently become zero.
 // Accepts one hypothetical assignment or a list of them. Several entries may
 // target the same category; their points are summed into that category's totals
@@ -199,8 +201,21 @@ export function estimateGrade(
   return weight > 0 ? (weighted / weight) * 100 : null;
 }
 
+// The caller supplies counted scores only. A missing denominator or unparsed
+// grade makes the total unknown, while zero-point extra credit is valid.
+export function pointsPercentage(graded: { earned: number | null; possible: number | null }[]) {
+  let earned = 0, possible = 0;
+  for (const a of graded) {
+    if (a.earned === null || a.possible === null || a.earned < 0 || a.possible < 0) return null;
+    earned += a.earned;
+    possible += a.possible;
+  }
+  return possible > 0 ? earned / possible * 100 : null;
+}
+
 // Refine a whole-number course mark without changing the official mark or letter.
 export function coursePercentage(mark: GradeMark) {
+  if (mark.canvasEstimate) return { value: mark.percent, basis: mark.canvasEstimate };
   const reported = { value: mark.percent, basis: "reported" as const };
   if (mark.percent === null || !Number.isInteger(mark.percent) || ungradedMark.test(mark.letter.trim())) return reported;
 
@@ -211,14 +226,7 @@ export function coursePercentage(mark: GradeMark) {
     basis = "weighted";
   } else {
     // Without published weights, total points are an estimate, not an official grade.
-    let earned = 0, possible = 0;
-    for (const a of mark.assignments) {
-      if (!hasGradeScore(a)) continue;
-      if (a.earned === null || a.possible === null || a.earned < 0 || a.possible < 0) return reported;
-      earned += a.earned;
-      possible += a.possible;
-    }
-    value = possible > 0 ? earned / possible * 100 : null;
+    value = pointsPercentage(mark.assignments.filter(hasGradeScore));
     basis = "points";
   }
   // A different rounded grade indicates the available data cannot explain the mark.

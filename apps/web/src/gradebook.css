@@ -672,9 +672,11 @@
   border: 1px solid var(--control-line);
   border-radius: 4px;
 }
-.gb-table tbody .gb-whatif-row,
-.gb-table tbody .gb-edited-row {
+.gb-assignment-table tbody tr:is(.gb-whatif-row, .gb-edited-row) > td {
   background: var(--primary-soft);
+}
+.gb-assignment-table tbody tr:is(.gb-whatif-row, .gb-edited-row) > td:first-child {
+  box-shadow: inset 3px 0 var(--primary);
 }
 .gb-assignment-table tr[data-excluded="true"] td:nth-child(2) strong,
 .gb-assignment-table tr[data-excluded="true"] .gb-score {

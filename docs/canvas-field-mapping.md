@@ -19,6 +19,8 @@ Only the authenticated token owner's active student courses are requested. All p
 | submission.grade_matches_current_submission | Previous-attempt grade label |
 | submission.redo_request | Resubmission attention reason |
 | submission.assignment_visible=false | Exclude the assignment |
+| assignment_group_id, submission.grading_period_id | Resolve course-local group and marking period names for the unofficial gradebook when available |
+| omit_from_final_grade, submission.excused | Show the assignment as excluded from unofficial totals |
 
 An absent submission remains unknown. No individual-submission fallback is currently used; this deliberately avoids asserting non-submission until the live account response can be verified. Paper/external-tool work can appear in the action view with a check label. The service does not fetch student submission bodies, attachment content, comments, or classmate data. Any irrelevant fields returned by Canvas are stripped before app responses or caching.
 

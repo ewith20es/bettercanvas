@@ -1,6 +1,6 @@
 # Better Canvas — current project context
 
-Last updated: **October 31, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
+Last updated: **November 2, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
 and [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## Purpose and stack
@@ -22,6 +22,17 @@ optional Canvas offline storage. One Render web service serves frontend and API.
   and Render state before treating this dated snapshot as current.
 
 ## Current work and verification
+
+November 2: Gradebook opens in Official mode. The optional unofficial view merges
+the Canvas snapshot with the selected StudentVUE class and quarter in memory.
+Matching and estimate calculations live in `packages/domain/src/combined-gradebook.ts`.
+Blue badges identify Canvas changes. What-if edits and additions use red rows.
+The configured Canvas API returned 267 assignments across 12 courses. All eight
+classes in the synthetic reference schedule matched those Canvas course names.
+230 tests, typecheck and the production build passed. Browser checks with sample
+data covered source switching, both red row types, score colors, selection and
+zero trimming. The user authorized committing and pushing to main on November 2.
+Live StudentVUE pairings and Render deployment remain unverified.
 
 Course percentages now refine whole marks using weighted category totals or, when no categories are supplied, a labeled total-points estimate. Results must round back to the reported mark. N/A and hidden percentages stay unavailable. 221 tests and the production build passed; local only.
 

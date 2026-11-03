@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { api, ApiError } from "./data";
 import { BellSchedule } from "./BellSchedule";
+import type { Snapshot } from "../../../packages/domain/src";
+import { combinedGradebook } from "../../../packages/domain/src/combined-gradebook";
 import { readBellPreference, schoolClock, selectedBells, type BellPreference } from "./bell-schedules";
 import {
   activeMeeting,
@@ -40,6 +42,7 @@ import {
   hasGradeScore,
   letterFromPercent,
   periodTiming,
+  pointsPercentage,
   type Gradebook as GradebookData,
   type GradebookConnection,
   type GradeAssignment,
@@ -50,6 +53,7 @@ import {
 } from "../../../packages/domain/src/gradebook";
 import {
   demoGradebook,
+  demoGradebookCanvas,
   demoSchedule,
 } from "../../../packages/domain/src/gradebook-demo";
 import "./gradebook.css";
@@ -60,10 +64,11 @@ const percent = (n: number | null) =>
   n === null ? "—" : `${Number(n.toFixed(2))}%`;
 function CoursePercentage({ mark }: { mark: GradeMark }) {
   const { value, basis } = useMemo(() => coursePercentage(mark), [mark]);
-  if (value === null) return null;
-  const hint = basis === "points" ? "Estimated from graded assignment points; category weights were not provided."
+  if (value === null) return mark.canvasEstimate ? <small> · Estimate unavailable</small> : null;
+  const hint = mark.canvasEstimate ? (basis === "points" ? "Unofficial estimate from combined assignment points." : "Unofficial estimate using StudentVUE category weights.")
+    : basis === "points" ? "Estimated from graded assignment points; category weights were not provided."
     : basis === "weighted" ? "Calculated from StudentVUE category points and weights." : undefined;
-  return <span title={hint}> ({basis === "points" ? "≈" : ""}{percent(value)})</span>;
+  return <span title={hint}> ({mark.canvasEstimate || basis === "points" ? "≈" : ""}{percent(value)})</span>;
 }
 // Use the same MCPS scale for course letters, category bars and score colors.
 const scoreTone = (value: number | null) => gradeTone(letterFromPercent(value));
@@ -123,7 +128,11 @@ const urgency = (seconds: number) =>
 const autoRefreshEvery = 5 * 60 * 1000;
 const renewEarly = 2 * 60 * 1000;
 
-export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; account: string }) {
+export function Gradebook({ canvas, account, canvasStatus, refreshCanvas }: {
+  canvas: Snapshot; account: string; canvasStatus: string; refreshCanvas: () => Promise<void>;
+}) {
+  const demoWorkspace = canvas.demo;
+  const [useCanvas, setCombined] = useState(false);
   const [bells, setBells] = useState(() => readBellPreference(account));
   const [bellSaveError, setBellSaveError] = useState("");
   const chooseBells = (next: BellPreference) => {
@@ -135,6 +144,7 @@ export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; 
     null,
   );
   const [sample, setSample] = useState<GradebookData | null>(null);
+  const combined = useCanvas && (!!sample || !canvas.demo);
   const [busy, setBusy] = useState(true),
     [error, setError] = useState("");
   const [username, setUsername] = useState(""),
@@ -327,7 +337,10 @@ export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; 
     setPassword("");
     await run("gradebook/connect", credentials);
   };
-  const data = sample ?? connection?.snapshot;
+  const official = sample ?? connection?.snapshot;
+  const data = useMemo(() => combined && official
+    ? combinedGradebook(official, sample ? demoGradebookCanvas() : canvas) : official,
+    [combined, official, sample, canvas]);
   // The preview uses a stand-in schedule so the countdown is still visible.
   const sampleSchedule = useRef(
     demoSchedule(new Date().getHours() * 60 + new Date().getMinutes()),
@@ -353,6 +366,7 @@ export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; 
       return;
     }
     void run("gradebook/refresh", { period: period ?? data?.period.index });
+    if (combined && period === undefined && !canvas.demo) void refreshCanvas();
   };
   const preview = () => {
     setSample(demoGradebook());
@@ -697,6 +711,19 @@ export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; 
       )}
       {data && (
         <>
+          <div className="gb-bells">
+            <div className="gb-bell-controls"><label>Gradebook source
+              <select value={combined ? "combined" : "official"} onChange={e => setCombined(e.target.value === "combined")}>
+                <option value="official">Official (StudentVUE)</option>
+                <option value="combined" disabled={!sample && canvas.demo}>Unofficial (Canvas + StudentVUE)</option>
+              </select>
+            </label></div>
+            {combined && <p className="gb-bell-note">Blue badges mark Canvas additions and score changes. Combined grades are estimates.
+              {" Only assignments that can be placed in this class and quarter are included."}
+              {!sample && canvasStatus && ` ${canvasStatus}`}
+            </p>}
+            {!sample && canvas.demo && <p className="gb-bell-note">Connect Canvas to use unofficial grades.</p>}
+          </div>
           {!sample && (automatic ? <details className="gb-bells"><summary>Using today’s StudentVUE bell times · Fallback settings</summary><BellSchedule value={bells} onChange={chooseBells} today={schoolClock(tick).date} /></details> : <BellSchedule value={bells} onChange={chooseBells} today={schoolClock(tick).date} />)}
           {bellSaveError && <p role="status">{bellSaveError}</p>}
           {sample && (
@@ -720,7 +747,7 @@ export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; 
                 <ArrowLeft size={16} /> All classes
               </button>
               <CourseDetails
-                key={`${data.period.index}:${selected.id}`}
+                key={`${combined}:${data.period.index}:${selected.id}`}
                 course={selected}
                 controls={controls}
               />
@@ -852,7 +879,7 @@ export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; 
           )}
           <div className="gb-status">
             <span>
-              {data.courses.length} classes · {marked.length} reported grades
+              {data.courses.length} classes · {marked.length} {combined ? "grades" : "reported grades"}
               {missing > 0 && (
                 <span className="gb-missing-count"> · {missing} missing</span>
               )}
@@ -865,7 +892,7 @@ export function Gradebook({ demoWorkspace, account }: { demoWorkspace: boolean; 
           </div>
           <p className="gb-footnote">
             <ShieldCheck size={14} />{" "}
-            {sample ? "Demo only" : "Reported grades from StudentVUE / Synergy"}{" "}
+            {sample ? "Demo only" : combined ? "Unofficial · Canvas + StudentVUE" : "Reported grades from StudentVUE / Synergy"}{" "}
             {!sample && connection?.method === "browser-session" && (
               <span>
                 · Browser session · Category calculations are unavailable.
@@ -959,6 +986,8 @@ const num = (s: string) => {
 const counted = (a: GradeAssignment) => !a.excluded && a.earned !== null;
 const pointsOf = (n: number | null) =>
   n === null ? "" : String(Number(n.toFixed(2)));
+const fieldTone = (earned: string, possible: string) =>
+  earned === "" || num(possible) <= 0 ? "none" : scoreTone(num(earned) / num(possible) * 100);
 
 // Click-to-edit number cell, matching GradeDurian's inline score fields.
 function ScoreField({
@@ -973,21 +1002,32 @@ function ScoreField({
   const [editing, setEditing] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (editing) ref.current?.focus();
+    if (editing) {
+      ref.current?.focus();
+      ref.current?.select();
+    }
   }, [editing]);
+  const finish = () => {
+    const normalized = value === "" || value === "." ? "" : String(Number(value));
+    if (normalized !== value) onChange(normalized);
+    setEditing(false);
+  };
   return editing ? (
     <input
       ref={ref}
       className="gb-score-input"
-      type="number"
-      min={0}
-      step="any"
+      type="text"
+      inputMode="decimal"
       aria-label={label}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onBlur={() => setEditing(false)}
+      onChange={(e) => {
+        const next = e.target.value;
+        if (/^\d*(?:\.\d*)?$/.test(next) && (next === "." || Number.isFinite(Number(next))))
+          onChange(next.replace(/^0+(?=\d)/, ""));
+      }}
+      onBlur={finish}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === "Escape") setEditing(false);
+        if (e.key === "Enter" || e.key === "Escape") e.currentTarget.blur();
       }}
     />
   ) : (
@@ -1043,7 +1083,14 @@ function MarkDetails({
   const setOverride = (
     a: GradeAssignment,
     patch: Partial<{ earned: string; possible: string }>,
-  ) => setOverrides((o) => ({ ...o, [a.id]: { ...override(a), ...patch } }));
+  ) => setOverrides((o) => {
+    const original = { earned: pointsOf(a.earned), possible: pointsOf(a.possible) };
+    const value = { ...(o[a.id] ?? original), ...patch };
+    const next = { ...o };
+    if (value.earned === original.earned && value.possible === original.possible) delete next[a.id];
+    else next[a.id] = value;
+    return next;
+  });
   const clearOverride = (id: string) =>
     setOverrides((o) => {
       const next = { ...o };
@@ -1058,6 +1105,12 @@ function MarkDetails({
   // Project the reported category totals forward: hypothetical rows add points,
   // edited real assignments contribute only the difference they make.
   const adjusted: GradeCategory[] = categories.map((c) => {
+    const incomplete = rows.some(r => r.category === c.name && (!r.earned || !r.possible)) ||
+      mark.assignments.some(a => {
+        const o = overrides[a.id];
+        return !a.excluded && a.category === c.name && o && (!o.earned || !o.possible);
+      });
+    if (incomplete) return { ...c, earned: null, possible: null };
     let earned = c.earned ?? 0,
       possible = c.possible ?? 0;
     for (const r of rows)
@@ -1067,18 +1120,27 @@ function MarkDetails({
       }
     for (const a of mark.assignments) {
       const o = overrides[a.id];
-      if (!o || a.category !== c.name) continue;
+      if (!o || a.excluded || a.category !== c.name) continue;
       earned += num(o.earned) - (counted(a) ? (a.earned ?? 0) : 0);
       possible += num(o.possible) - (counted(a) ? (a.possible ?? 0) : 0);
     }
     return {
       ...c,
-      earned: Math.max(0, earned),
-      possible: Math.max(0, possible),
+      earned: c.earned === null && c.possible !== 0 ? null : Math.max(0, earned),
+      possible: c.possible === null ? null : Math.max(0, possible),
     };
   });
   const changed = rows.length > 0 || Object.keys(overrides).length > 0;
-  const estimate = estimateGrade(adjusted);
+  const draftPoints = (r: { earned: string; possible: string }) => ({
+    earned: r.earned === "" ? null : num(r.earned), possible: r.possible === "" ? null : num(r.possible),
+  });
+  const estimate = !changed || mark.canvasEstimate === "unavailable" ? null : categories.length
+    ? estimateGrade(adjusted)
+    : pointsPercentage([
+        ...mark.assignments.filter(a => !a.excluded && (overrides[a.id] || hasGradeScore(a)))
+          .map(a => overrides[a.id] ? draftPoints(overrides[a.id]) : a),
+        ...rows.map(draftPoints),
+      ]);
   const baseline = estimateGrade(categories);
   const actual = useMemo(() => coursePercentage(mark), [mark]);
   const shown = changed && estimate !== null ? estimate : actual.value;
@@ -1111,7 +1173,7 @@ function MarkDetails({
         </div>
         {changed && estimate !== null && (
           <span className="gb-estimate-chip">
-            <Calculator size={14} /> What-if estimate{" "}
+            <Calculator size={14} /> What-if {categories.length ? "estimate" : "points estimate"}{" "}
             {letterFromPercent(estimate)} ({percent(estimate)})
           </span>
         )}
@@ -1171,7 +1233,6 @@ function MarkDetails({
         <button
           className="button"
           onClick={addRow}
-          disabled={!categories.length}
         >
           <FilePlus2 size={15} /> Add assignment
         </button>
@@ -1241,7 +1302,7 @@ function MarkDetails({
                   />
                 </td>
                 <td>
-                  <div className="gb-score">
+                  <div className="gb-score" data-grade={fieldTone(r.earned, r.possible)}>
                     <ScoreField
                       label="Points earned"
                       value={r.earned}
@@ -1256,7 +1317,7 @@ function MarkDetails({
                   </div>
                 </td>
                 <td>
-                  <select
+                  {categories.length ? <select
                     aria-label="What-if assignment category"
                     value={r.category}
                     onChange={(e) => setRow(r.id, { category: e.target.value })}
@@ -1266,7 +1327,7 @@ function MarkDetails({
                         {c.name}
                       </option>
                     ))}
-                  </select>
+                  </select> : "—"}
                 </td>
                 <td>
                   <button
@@ -1292,6 +1353,7 @@ function MarkDetails({
                   <td>{date(a.due)}</td>
                   <td>
                     <strong>{a.name}</strong>
+                    {a.canvasChange && <span className="badge blue">Canvas {a.canvasChange}</span>}
                     {a.notes && (
                       <p className="gb-assignment-notes">{a.notes}</p>
                     )}
@@ -1305,9 +1367,7 @@ function MarkDetails({
                     <div
                       className="gb-score"
                       data-grade={
-                        a.excluded || o.earned === "" || num(o.possible) <= 0
-                          ? "none"
-                          : scoreTone((num(o.earned) / num(o.possible)) * 100)
+                        a.excluded ? "none" : fieldTone(o.earned, o.possible)
                       }
                     >
                       <ScoreField

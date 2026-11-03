@@ -4,6 +4,36 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-11-02 — Combine Canvas scores with the optional unofficial gradebook
+
+- Added Official (StudentVUE) and Unofficial (Canvas + StudentVUE) above the bell
+  settings. Official is the initial view. The unofficial view projects Canvas
+  scores over StudentVUE in browser memory and labels changed/new rows in blue.
+- Course title/section periods, normalized assignment names, school-local dates
+  and optional Canvas marking periods constrain matching. Known task prefixes
+  and Spanish due-date annotations are normalized while exercise numbers remain.
+  Current numeric Canvas scores, including zero, override matching scores.
+  Unscored and previous-attempt scores preserve the StudentVUE grade.
+- New assignments require a verifiable class and quarter. Ambiguous repeated
+  titles remain unmerged. Category totals use score deltas and StudentVUE weights.
+  Missing weights/categories prevent an estimate. Classes without category
+  totals show an explicitly labeled total-points estimate.
+- Canvas sync now optionally reads assignment group and marking period names,
+  and preserves final-grade exclusion flags. Older cached snapshots remain
+  supported. No StudentVUE or combined grades enter offline storage.
+- What-if changes and new rows both use red backgrounds with a red edge. Added
+  score cells use grade colors. Clicking selects the full score. Editing trims
+  leading zeros and normalizes the committed value. What-if rows also work in
+  classes without category summaries, using a labeled points estimate.
+- Verified the configured read-only Canvas API with 267 assignments across 12
+  courses and no failed course syncs. All eight classes in the synthetic reference
+  schedule matched those Canvas course names. Browser checks used labeled sample
+  data and verified switching back to official, both red row types, new score
+  colors, selection and zero trimming.
+- 230 tests, strict typecheck and production build passed. The user authorized
+  committing and pushing to main on November 2. Live StudentVUE assignment
+  pairings and Render deployment remain unverified.
+
 ## 2026-10-31 — Calculate fractional course percentages
 
 Course percentages now refine whole marks using weighted category totals or, when no categories are supplied, a labeled total-points estimate. Results must round back to the reported mark. N/A and hidden percentages stay unavailable. 221 tests and the production build passed; local only.
