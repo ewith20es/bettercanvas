@@ -119,6 +119,24 @@ it("isolates repeated assignment names when switching quarters", () => {
   expect(merge()).toBe(original);
 });
 
+it("only adds assignments from the selected interim quarter even with broad reporting dates", () => {
+  const { book, canvas, original, merge } = fixture();
+  book.period = { index: 2, name: "MP2 Interim", start: "2026-08-25", end: "2026-11-20" };
+  book.periods = [book.period];
+  original.name = "MP2 Interim";
+  const row = canvas.assignments[1];
+  canvas.assignments = [
+    { ...row, gradingPeriod: "MP 1" },
+    { ...row, id: "q2", name: "Quarter two work", gradingPeriod: "MP 2", dueAt: "2026-11-06T18:00:00Z" },
+  ];
+  const merged = merge();
+  expect(merged.assignments.filter(a => a.canvasChange)).toEqual([
+    expect.objectContaining({ name: "Quarter two work", canvasChange: "added" }),
+  ]);
+  canvas.assignments = [{ ...canvas.assignments[0], name: "Reading notes" }];
+  expect(merge()).toBe(original);
+});
+
 it("does not import another class, ambiguous section or live data into a preview", () => {
   const { canvas, original, merge } = fixture();
   canvas.courses[0].sections = ["Hon English 9A-P02"];

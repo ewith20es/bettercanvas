@@ -1,6 +1,6 @@
 # Better Canvas — current project context
 
-Last updated: **November 3, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
+Last updated: **November 4, 2026**. Read [CLAUDE.md](CLAUDE.md) for working rules
 and [CHANGELOG.md](CHANGELOG.md) for history.
 
 ## Purpose and stack
@@ -22,6 +22,10 @@ optional Canvas offline storage. One Render web service serves frontend and API.
   and Render state before treating this dated snapshot as current.
 
 ## Current work and verification
+
+November 4: quarter filtering now recognizes MP2 Interim and other MP/Q
+labels with an Interim suffix. Regression covers Q1 additions and overrides
+being rejected in MP2 Interim even with broad reporting dates.
 
 November 3: unofficial gradebook cards and list rows highlight Canvas changes.
 Canvas-only assignments need a current numeric score. Both additions and updates

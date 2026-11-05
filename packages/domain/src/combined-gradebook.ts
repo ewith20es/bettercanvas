@@ -63,7 +63,7 @@ function matchCourse(course: Course, courses: GradeCourse[]) {
 
 type DatedAssignment = { row: Assignment; due: string };
 const quarter = (name: string) =>
-  /^(?:mp|marking period|quarter|qtr|q)\s*([1-4])$/i.exec(name.trim())?.[1];
+  /^(?:mp|marking period|quarter|qtr|q)\s*([1-4])(?:\s+interim)?$/i.exec(name.trim())?.[1];
 function scopedAssignment(
   row: Assignment,
   period: GradePeriod,

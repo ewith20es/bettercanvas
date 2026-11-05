@@ -4,6 +4,13 @@ Newest entries first. Record what changed, why, verification, and unfinished wor
 Older entries below were reconstructed from Git history and session records; they
 are not claims of fresh testing. Current context lives in [PROJECT.md](PROJECT.md).
 
+## 2026-11-04 — Recognize interim marking periods
+
+MP2 Interim now resolves to quarter 2 when filtering Canvas additions and
+updates. Previously the interim suffix bypassed the explicit quarter comparison
+and allowed MP1 work through broad reporting dates. Regression coverage checks
+both additions and overrides. All 236 tests passed.
+
 ## 2026-11-03 — Isolate unofficial assignments by quarter
 
 Both additions and overrides require a matching marking period or a due date
